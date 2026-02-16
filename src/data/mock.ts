@@ -669,3 +669,93 @@ export const mockCaseChecklists: CaseChecklist[] = [
     ],
   },
 ];
+
+// ===== RESPONSÁVEIS =====
+
+export interface Responsavel {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  role: string;
+  company_id: string;
+  alerts_audiencias: boolean;
+  alerts_prazos: boolean;
+  alerts_tarefas: boolean;
+  alerts_whatsapp: boolean;
+  alerts_email: boolean;
+  active: boolean;
+}
+
+export const mockResponsaveis: Responsavel[] = [
+  {
+    id: 'r1',
+    name: 'Ana Jurídico',
+    phone: '(74) 99912-3456',
+    email: 'ana@revalle.com.br',
+    role: 'Responsável Jurídico',
+    company_id: 'all',
+    alerts_audiencias: true,
+    alerts_prazos: true,
+    alerts_tarefas: true,
+    alerts_whatsapp: true,
+    alerts_email: true,
+    active: true,
+  },
+  {
+    id: 'r2',
+    name: 'João DP',
+    phone: '(74) 99934-5678',
+    email: 'joao.dp@revalle.com.br',
+    role: 'Departamento Pessoal',
+    company_id: 'all',
+    alerts_audiencias: false,
+    alerts_prazos: true,
+    alerts_tarefas: true,
+    alerts_whatsapp: true,
+    alerts_email: false,
+    active: true,
+  },
+  {
+    id: 'r3',
+    name: 'Dr. Roberto Advogado',
+    phone: '(71) 99876-5432',
+    email: 'roberto@advocacia.com.br',
+    role: 'Advogado Externo',
+    company_id: 'c1',
+    alerts_audiencias: true,
+    alerts_prazos: true,
+    alerts_tarefas: false,
+    alerts_whatsapp: false,
+    alerts_email: true,
+    active: true,
+  },
+  {
+    id: 'r4',
+    name: 'Dra. Patrícia Externa',
+    phone: '(87) 99765-4321',
+    email: 'patricia@advocacia.com.br',
+    role: 'Advogada Externa',
+    company_id: 'c2',
+    alerts_audiencias: true,
+    alerts_prazos: true,
+    alerts_tarefas: false,
+    alerts_whatsapp: true,
+    alerts_email: true,
+    active: true,
+  },
+  {
+    id: 'r5',
+    name: 'Dr. Marcos Interno',
+    phone: '(74) 99888-7654',
+    email: 'marcos@revalle.com.br',
+    role: 'Advogado Interno',
+    company_id: 'all',
+    alerts_audiencias: true,
+    alerts_prazos: true,
+    alerts_tarefas: true,
+    alerts_whatsapp: true,
+    alerts_email: true,
+    active: true,
+  },
+];
