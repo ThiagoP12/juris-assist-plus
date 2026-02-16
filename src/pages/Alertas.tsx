@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bell, CalendarDays, Clock, FileText, CheckCircle2, AlertTriangle, Info } from "lucide-react";
+import { Bell, CalendarDays, Clock, FileText, CheckCircle2, BellOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,12 +20,6 @@ const severityStyles: Record<AlertSeverity, string> = {
   urgente: "border-l-destructive bg-destructive/5",
 };
 
-const severityLabels: Record<AlertSeverity, string> = {
-  info: "Info",
-  atencao: "Atenção",
-  urgente: "Urgente",
-};
-
 export default function Alertas() {
   const [tab, setTab] = useState("todos");
   const [alerts, setAlerts] = useState(mockAlerts);
@@ -40,24 +34,32 @@ export default function Alertas() {
     setAlerts((prev) => prev.map((a) => a.id === id ? { ...a, treated: !a.treated } : a));
   };
 
+  const untreatedCount = alerts.filter((a) => !a.treated).length;
+
   return (
     <div className="p-4 md:p-6 lg:p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Alertas</h1>
+      <div className="mb-5">
+        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Alertas</h1>
         <p className="text-sm text-muted-foreground">
-          {alerts.filter((a) => !a.treated).length} não tratados
+          {untreatedCount > 0 ? (
+            <span className="font-medium text-destructive">{untreatedCount} não tratados</span>
+          ) : (
+            "Todos tratados ✓"
+          )}
         </p>
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="mb-4 flex-wrap">
-          <TabsTrigger value="todos">Todos</TabsTrigger>
-          <TabsTrigger value="importantes">Importantes</TabsTrigger>
-          <TabsTrigger value="prazo">Prazos</TabsTrigger>
-          <TabsTrigger value="audiencia">Audiências</TabsTrigger>
-          <TabsTrigger value="tarefa">Tarefas</TabsTrigger>
-          <TabsTrigger value="prova">Provas</TabsTrigger>
-        </TabsList>
+        <div className="mb-4 overflow-x-auto scrollbar-hide">
+          <TabsList className="w-max">
+            <TabsTrigger value="todos">Todos</TabsTrigger>
+            <TabsTrigger value="importantes">Importantes</TabsTrigger>
+            <TabsTrigger value="prazo">Prazos</TabsTrigger>
+            <TabsTrigger value="audiencia">Audiências</TabsTrigger>
+            <TabsTrigger value="tarefa">Tarefas</TabsTrigger>
+            <TabsTrigger value="prova">Provas</TabsTrigger>
+          </TabsList>
+        </div>
       </Tabs>
 
       <div className="space-y-2">
@@ -65,9 +67,9 @@ export default function Alertas() {
           <div
             key={a.id}
             className={cn(
-              "flex items-start gap-3 rounded-lg border-l-4 p-4 transition-all",
+              "flex items-start gap-3 rounded-xl border-l-4 p-3 shadow-sm transition-all sm:p-4",
               severityStyles[a.severity],
-              a.treated && "opacity-60"
+              a.treated && "opacity-50"
             )}
           >
             <div className={cn(
@@ -78,22 +80,21 @@ export default function Alertas() {
               {typeIcons[a.type]}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
                 <p className="text-sm font-semibold">{a.title}</p>
-                {a.treated && (
+                {a.treated ? (
                   <Badge variant="outline" className="text-[10px] bg-success/10 text-success">Tratada</Badge>
-                )}
-                {!a.treated && (
+                ) : (
                   <Badge variant="outline" className="text-[10px] bg-destructive/10 text-destructive">Não tratada</Badge>
                 )}
               </div>
-              <p className="mt-0.5 text-sm text-muted-foreground">{a.description}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">{a.description}</p>
               {a.case_number && (
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-1 text-[11px] text-muted-foreground">
                   Processo: {a.case_number} · {a.employee}
                 </p>
               )}
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
                 {new Date(a.event_date).toLocaleString("pt-BR")}
               </p>
             </div>
@@ -108,7 +109,10 @@ export default function Alertas() {
           </div>
         ))}
         {filtered.length === 0 && (
-          <p className="py-8 text-center text-sm text-muted-foreground">Nenhum alerta encontrado.</p>
+          <div className="rounded-xl border border-dashed p-12 text-center">
+            <BellOff className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground">Nenhum alerta encontrado.</p>
+          </div>
         )}
       </div>
     </div>
