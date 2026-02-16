@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, CheckCircle2, Circle, Clock, AlertTriangle } from "lucide-react";
+import { Plus, CheckCircle2, Circle, Clock, AlertTriangle, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -30,9 +30,9 @@ export default function Tarefas() {
 
   return (
     <div className="p-4 md:p-6 lg:p-8">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-5 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Tarefas</h1>
+          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Tarefas</h1>
           <p className="text-sm text-muted-foreground">Minhas tarefas e do time</p>
         </div>
         <Button className="gap-2" size="sm" asChild>
@@ -41,30 +41,32 @@ export default function Tarefas() {
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="todas">Todas</TabsTrigger>
-          <TabsTrigger value="aberta">Abertas</TabsTrigger>
-          <TabsTrigger value="em_andamento">Em Andamento</TabsTrigger>
-          <TabsTrigger value="aguardando">Aguardando</TabsTrigger>
-          <TabsTrigger value="concluida">Concluídas</TabsTrigger>
-        </TabsList>
+        <div className="mb-4 overflow-x-auto scrollbar-hide">
+          <TabsList className="w-max">
+            <TabsTrigger value="todas">Todas</TabsTrigger>
+            <TabsTrigger value="aberta">Abertas</TabsTrigger>
+            <TabsTrigger value="em_andamento">Em Andamento</TabsTrigger>
+            <TabsTrigger value="aguardando">Aguardando</TabsTrigger>
+            <TabsTrigger value="concluida">Concluídas</TabsTrigger>
+          </TabsList>
+        </div>
       </Tabs>
 
       <div className="space-y-2">
         {filtered.map((t) => (
           <div
             key={t.id}
-            className="flex items-start gap-3 rounded-lg border bg-card p-4 transition-colors hover:bg-accent/30"
+            className="flex items-start gap-3 rounded-xl border bg-card p-3 shadow-sm transition-all hover:shadow-md active:scale-[0.99] sm:p-4"
           >
-            <div className="mt-0.5">{statusIcons[t.status]}</div>
+            <div className="mt-0.5 shrink-0">{statusIcons[t.status]}</div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium">{t.title}</p>
+              <p className="text-sm font-medium leading-snug">{t.title}</p>
               {t.case_number && (
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
                   {t.case_number} · {t.employee}
                 </p>
               )}
-              <div className="mt-2 flex flex-wrap items-center gap-2">
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 <Badge variant="outline" className={cn("text-[10px]", priorityColors[t.priority])}>
                   {priorityLabels[t.priority]}
                 </Badge>
@@ -77,7 +79,10 @@ export default function Tarefas() {
           </div>
         ))}
         {filtered.length === 0 && (
-          <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma tarefa encontrada.</p>
+          <div className="rounded-xl border border-dashed p-12 text-center">
+            <ListChecks className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground">Nenhuma tarefa encontrada.</p>
+          </div>
         )}
       </div>
     </div>

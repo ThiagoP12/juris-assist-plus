@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Search, Filter, Plus, ChevronRight, Shield, Building2 } from "lucide-react";
+import { Search, Plus, ChevronRight, Shield, Building2, CalendarDays, Clock, Scale } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,9 +33,9 @@ export default function Processos() {
 
   return (
     <div className="p-4 md:p-6 lg:p-8">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Processos</h1>
+          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Processos</h1>
           <p className="text-sm text-muted-foreground">{filtered.length} processos encontrados</p>
         </div>
         <Button className="gap-2" size="sm" asChild>
@@ -77,7 +77,7 @@ export default function Processos() {
           <Link
             key={c.id}
             to={`/processos/${c.id}`}
-            className="group flex items-center gap-4 rounded-lg border bg-card p-4 transition-colors hover:bg-accent/50"
+            className="group flex items-center gap-3 rounded-xl border bg-card p-3 shadow-sm transition-all hover:shadow-md active:scale-[0.99] sm:gap-4 sm:p-4"
           >
             <div className="min-w-0 flex-1">
               <div className="mb-1 flex items-center gap-2">
@@ -87,13 +87,28 @@ export default function Processos() {
                 )}
               </div>
               <p className="truncate text-xs text-muted-foreground">
-                {c.case_number} · <span className="font-medium text-primary">{c.company}</span> – {c.branch}
+                {c.case_number} · <span className="font-medium text-primary">{c.company}</span>
               </p>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 <Badge variant="outline" className={cn("text-[10px]", statusColors[c.status])}>
                   {statusLabels[c.status]}
                 </Badge>
                 <Badge variant="secondary" className="text-[10px]">{c.theme}</Badge>
+              </div>
+              {/* Mobile: show dates inline */}
+              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 sm:hidden">
+                {c.next_hearing && (
+                  <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <CalendarDays className="h-3 w-3" />
+                    {new Date(c.next_hearing).toLocaleDateString("pt-BR")}
+                  </span>
+                )}
+                {c.next_deadline && (
+                  <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    {new Date(c.next_deadline).toLocaleDateString("pt-BR")}
+                  </span>
+                )}
               </div>
             </div>
             <div className="hidden flex-col items-end gap-1 text-right sm:flex">
@@ -112,6 +127,12 @@ export default function Processos() {
             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
           </Link>
         ))}
+        {filtered.length === 0 && (
+          <div className="rounded-xl border border-dashed p-12 text-center">
+            <Scale className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground">Nenhum processo encontrado.</p>
+          </div>
+        )}
       </div>
     </div>
   );
