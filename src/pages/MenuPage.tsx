@@ -1,8 +1,9 @@
-import { Building2, Users, Settings, Shield, FileText, LogOut, Plug, CalendarDays, UserCheck, BarChart3, Bell, ShieldCheck } from "lucide-react";
+import { Building2, Users, Settings, Shield, FileText, LogOut, Plug, CalendarDays, UserCheck, BarChart3, Bell, ShieldCheck, GanttChart } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 const menuItems = [
+  { label: "Cronograma", icon: GanttChart, description: "Visão geral das fases do projeto", path: "/cronograma" },
   { label: "Relatórios", icon: BarChart3, description: "KPIs e dashboards visuais", path: "/relatorios" },
   { label: "Integrações", icon: Plug, description: "WhatsApp, E-mail, Drive, IA", path: "/integracoes" },
   { label: "Agenda", icon: CalendarDays, description: "Calendário unificado", path: "/agenda" },
