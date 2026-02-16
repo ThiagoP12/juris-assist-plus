@@ -20,6 +20,7 @@ import Empresas from "@/pages/Empresas";
 import UsuariosPermissoes from "@/pages/UsuariosPermissoes";
 import ChecklistTemplates from "@/pages/ChecklistTemplates";
 import RegrasAlertas from "@/pages/RegrasAlertas";
+import Cronograma from "@/pages/Cronograma";
 import MenuPage from "@/pages/MenuPage";
 import NotFound from "./pages/NotFound";
 
@@ -54,6 +55,7 @@ const App = () => (
                   <Route path="usuarios" element={<UsuariosPermissoes />} />
                   <Route path="checklists-templates" element={<ChecklistTemplates />} />
                   <Route path="regras-alertas" element={<RegrasAlertas />} />
+                  <Route path="cronograma" element={<Cronograma />} />
                   <Route path="menu" element={<MenuPage />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
