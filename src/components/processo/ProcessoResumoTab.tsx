@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CalendarDays, Clock, User, Phone, Mail, MessageCircle, Plus, X, UserCheck, Pencil, Check as CheckIcon } from "lucide-react";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -249,9 +250,7 @@ export default function ProcessoResumoTab({ caso }: Props) {
                   <X className="h-3.5 w-3.5" />
                 </Button>
                 <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                    <User className="h-5 w-5 text-primary" />
-                  </div>
+                  <UserAvatar name={r.name} />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold">{r.name}</p>
                     <p className="text-xs text-muted-foreground">{r.role}</p>
@@ -323,9 +322,7 @@ export default function ProcessoResumoTab({ caso }: Props) {
                   onClick={() => handleLink(r.id)}
                   className="flex w-full items-center gap-3 rounded-xl border bg-card p-3 text-left transition-all hover:bg-accent/50 hover:shadow-soft"
                 >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                    <User className="h-4 w-4 text-primary" />
-                  </div>
+                  <UserAvatar name={r.name} size="sm" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold">{r.name}</p>
                     <p className="text-xs text-muted-foreground">{r.role}</p>

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Plus, Phone, Bell, BellOff, Pencil, Trash2, UserCheck, Search } from "lucide-react";
+import { Plus, Phone, Bell, BellOff, Pencil, Trash2, Search } from "lucide-react";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -148,9 +149,7 @@ export default function Responsaveis() {
           <div key={r.id} className="group rounded-xl border bg-card p-4 shadow-soft transition-all duration-200 hover:shadow-card hover:-translate-y-0.5 animate-in fade-in slide-in-from-bottom-2 duration-300" style={{ animationDelay: `${index * 40}ms` }}>
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                  <UserCheck className="h-5 w-5 text-primary" />
-                </div>
+                <UserAvatar name={r.name} />
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-semibold">{r.name}</p>
@@ -199,9 +198,7 @@ export default function Responsaveis() {
         ))}
         {filtered.length === 0 && (
           <div className="rounded-xl border border-dashed p-12 text-center animate-in fade-in duration-300">
-            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/60">
-              <UserCheck className="h-7 w-7 text-muted-foreground/50" />
-            </div>
+            <UserAvatar name="?" size="lg" className="mx-auto mb-3 opacity-40" />
             <p className="text-sm font-semibold text-muted-foreground">Nenhum responsável encontrado</p>
             <p className="text-xs text-muted-foreground/60 mt-1">Tente ajustar a busca ou cadastre um novo</p>
           </div>
