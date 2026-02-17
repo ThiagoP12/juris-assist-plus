@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Scale, ClipboardList, CalendarDays, Clock, AlertTriangle,
   ChevronRight, Shield, TrendingUp, Users, Bell, Sparkles,
@@ -31,6 +31,7 @@ const priorityColors: Record<Priority, string> = {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { cases, tasks, alerts, deadlines, hearings } = useTenantData();
 
   const totalCases = cases.length;
@@ -70,6 +71,7 @@ export default function Dashboard() {
           total={totalCases}
           gradient="var(--gradient-primary)"
           delay={0}
+          onClick={() => navigate("/processos")}
         />
         <MetricCard
           icon={<ClipboardList className="h-5 w-5" />}
@@ -78,6 +80,7 @@ export default function Dashboard() {
           total={tasks.length}
           gradient="var(--gradient-warm)"
           delay={1}
+          onClick={() => navigate("/tarefas")}
         />
         <MetricCard
           icon={<Clock className="h-5 w-5" />}
@@ -85,6 +88,7 @@ export default function Dashboard() {
           value={urgentDeadlines.length}
           gradient="var(--gradient-danger)"
           delay={2}
+          onClick={() => navigate("/agenda")}
         />
         <MetricCard
           icon={<Bell className="h-5 w-5" />}
@@ -92,6 +96,7 @@ export default function Dashboard() {
           value={untreatedAlerts.length}
           gradient="var(--gradient-warm)"
           delay={3}
+          onClick={() => navigate("/alertas")}
         />
       </div>
 
@@ -233,7 +238,7 @@ function SectionHeader({ icon, title, linkTo, linkLabel }: { icon: React.ReactNo
 }
 
 function MetricCard({
-  icon, label, value, total, gradient, delay,
+  icon, label, value, total, gradient, delay, onClick,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -241,11 +246,13 @@ function MetricCard({
   total?: number;
   gradient: string;
   delay: number;
+  onClick?: () => void;
 }) {
   return (
     <div
-      className="rounded-xl border bg-card p-4 sm:p-5 shadow-soft hover:shadow-card transition-all duration-300 hover:-translate-y-0.5 animate-in fade-in slide-in-from-bottom-2 duration-500"
+      className="rounded-xl border bg-card p-4 sm:p-5 shadow-soft hover:shadow-card transition-all duration-300 hover:-translate-y-0.5 animate-in fade-in slide-in-from-bottom-2 duration-500 cursor-pointer"
       style={{ animationDelay: `${delay * 80}ms` }}
+      onClick={onClick}
     >
       <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl text-primary-foreground shadow-sm" style={{ background: gradient }}>
         {icon}
