@@ -24,6 +24,7 @@ import UsuariosPermissoes from "@/pages/UsuariosPermissoes";
 import ChecklistTemplates from "@/pages/ChecklistTemplates";
 import RegrasAlertas from "@/pages/RegrasAlertas";
 import Cronograma from "@/pages/Cronograma";
+import DocumentacaoGoLive from "@/pages/DocumentacaoGoLive";
 import MenuPage from "@/pages/MenuPage";
 import NotFound from "./pages/NotFound";
 
@@ -62,6 +63,7 @@ function AuthenticatedApp() {
               <Route path="checklists-templates" element={<ChecklistTemplates />} />
               <Route path="regras-alertas" element={<RegrasAlertas />} />
               <Route path="cronograma" element={<Cronograma />} />
+              <Route path="documentacao" element={<DocumentacaoGoLive />} />
               <Route path="menu" element={<MenuPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

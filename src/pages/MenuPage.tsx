@@ -1,4 +1,4 @@
-import { Building2, Users, Settings, Shield, FileText, LogOut, Plug, CalendarDays, UserCheck, BarChart3, Bell, ShieldCheck, GanttChart } from "lucide-react";
+import { Building2, Users, Settings, Shield, FileText, LogOut, Plug, CalendarDays, UserCheck, BarChart3, Bell, ShieldCheck, GanttChart, BookOpen } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +13,7 @@ const menuItems = [
   { label: "Usuários e Permissões", icon: Users, description: "Controle de acesso", path: "/usuarios" },
   { label: "Templates de Checklists", icon: FileText, description: "Modelos parametrizáveis", path: "/checklists-templates" },
   { label: "Regras de Alertas", icon: Bell, description: "Offsets, SLAs e escalonamento", path: "/regras-alertas" },
+  { label: "Documentação & Go-Live", icon: BookOpen, description: "Treinamento, docs e checklist de produção", path: "/documentacao" },
   { label: "Casos Sigilosos", icon: Shield, description: "Sala segura" },
   { label: "Configurações", icon: Settings, description: "Preferências do sistema" },
 ];
