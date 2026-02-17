@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Users, Plus, Shield, Edit, Search, Trash2, Save, X, Building2, ChevronDown, ChevronUp, UserCheck, UserX } from "lucide-react";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -237,9 +238,7 @@ export default function UsuariosPermissoes() {
           return (
             <div key={user.id} className="rounded-xl border bg-card overflow-hidden">
               <div className="flex items-center gap-3 p-4 cursor-pointer" onClick={() => { if (!isEditing) setExpandedUser(expanded ? null : user.id); }}>
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 shrink-0">
-                  <span className="text-xs font-bold text-primary">{user.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}</span>
-                </div>
+                <UserAvatar name={user.name} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-semibold">{user.name}</p>
