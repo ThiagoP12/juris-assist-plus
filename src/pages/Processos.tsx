@@ -4,13 +4,14 @@ import {
   Search, Plus, ChevronRight, Shield, Building2, CalendarDays, Clock,
   Scale, Eye, LayoutList, LayoutGrid, Columns3, Filter, User, Gavel,
   AlertTriangle, CheckCircle2, FileText, TrendingUp, DollarSign,
+  ArrowUpDown, X, SortAsc, SortDesc,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { statusLabels, type CaseStatus, type Case } from "@/data/mock";
 import { useTenantData } from "@/hooks/useTenantData";
 import { useAuth } from "@/contexts/AuthContext";
@@ -38,9 +39,18 @@ const statusIcons: Record<CaseStatus, React.ReactNode> = {
 };
 
 type ViewMode = "list" | "grid" | "kanban";
+type SortField = "employee" | "filed_at" | "amount" | "next_deadline";
+type SortDir = "asc" | "desc";
+
+const sortLabels: Record<SortField, string> = {
+  employee: "Reclamante",
+  filed_at: "Data de ajuizamento",
+  amount: "Valor da causa",
+  next_deadline: "Próximo prazo",
+};
 
 // ── Stat Card ──
-function StatCard({ label, value, icon, color }: { label: string; value: number; icon: React.ReactNode; color: string }) {
+function StatCard({ label, value, subtitle, icon, color }: { label: string; value: string | number; subtitle?: string; icon: React.ReactNode; color: string }) {
   return (
     <div className={cn("flex items-center gap-3 rounded-xl border p-3.5 shadow-soft transition-all hover:shadow-card", color)}>
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-background/60">
@@ -49,6 +59,7 @@ function StatCard({ label, value, icon, color }: { label: string; value: number;
       <div className="min-w-0">
         <p className="text-2xl font-extrabold leading-none">{value}</p>
         <p className="text-[11px] font-medium opacity-70 mt-0.5">{label}</p>
+        {subtitle && <p className="text-[10px] text-muted-foreground truncate">{subtitle}</p>}
       </div>
     </div>
   );
@@ -67,7 +78,6 @@ function ProcessCardGrid({ c, index }: { c: Case; index: number }) {
       className="group flex flex-col rounded-xl border bg-card shadow-soft transition-all duration-200 hover:shadow-card hover:-translate-y-1 active:scale-[0.98] animate-in fade-in slide-in-from-bottom-2 duration-300 overflow-hidden"
       style={{ animationDelay: `${index * 50}ms` }}
     >
-      {/* Status stripe */}
       <div className={cn("h-1.5 w-full", {
         "bg-info": c.status === "novo",
         "bg-primary": c.status === "em_andamento",
@@ -96,7 +106,7 @@ function ProcessCardGrid({ c, index }: { c: Case; index: number }) {
           <span className="text-[11px] text-primary font-medium truncate">{c.company}</span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Badge variant="secondary" className="text-[10px] font-medium w-fit">{c.theme}</Badge>
           {c.amount != null && (
             <span className="text-[11px] font-semibold text-foreground">
@@ -145,7 +155,6 @@ function ProcessCardList({ c, index }: { c: Case; index: number }) {
       style={{ animationDelay: `${index * 40}ms` }}
       aria-label={`Processo de ${c.employee} - ${c.case_number}`}
     >
-      {/* Status indicator dot */}
       <div className={cn("hidden sm:block h-10 w-1 rounded-full shrink-0", {
         "bg-info": c.status === "novo",
         "bg-primary": c.status === "em_andamento",
@@ -188,7 +197,6 @@ function ProcessCardList({ c, index }: { c: Case; index: number }) {
             </Badge>
           )}
         </div>
-        {/* Mobile dates */}
         <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 sm:hidden">
           {c.next_hearing && (
             <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
@@ -277,28 +285,57 @@ export default function Processos() {
   const isExternal = hasRole(["advogado_externo"]);
   const [search, setSearch] = useState("");
   const [companyFilter, setCompanyFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusTab, setStatusTab] = useState("todos");
   const [responsibleFilter, setResponsibleFilter] = useState("all");
   const [themeFilter, setThemeFilter] = useState("all");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [showFilters, setShowFilters] = useState(false);
+  const [sortField, setSortField] = useState<SortField>("filed_at");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
-  // Derived unique values for filters
   const responsibles = useMemo(() => [...new Set(cases.map((c) => c.responsible))].sort(), [cases]);
   const themes = useMemo(() => [...new Set(cases.map((c) => c.theme))].sort(), [cases]);
 
-  const filtered = useMemo(() => cases.filter((c) => {
-    const matchesSearch =
-      c.case_number.includes(search) ||
-      c.employee.toLowerCase().includes(search.toLowerCase()) ||
-      c.theme.toLowerCase().includes(search.toLowerCase()) ||
-      c.company.toLowerCase().includes(search.toLowerCase());
-    const matchesCompany = companyFilter === "all" || c.company_id === companyFilter;
-    const matchesStatus = statusFilter === "all" || c.status === statusFilter;
-    const matchesResponsible = responsibleFilter === "all" || c.responsible === responsibleFilter;
-    const matchesTheme = themeFilter === "all" || c.theme === themeFilter;
-    return matchesSearch && matchesCompany && matchesStatus && matchesResponsible && matchesTheme;
-  }), [cases, search, companyFilter, statusFilter, responsibleFilter, themeFilter]);
+  const filtered = useMemo(() => {
+    let result = cases.filter((c) => {
+      const matchesSearch =
+        !search.trim() ||
+        c.case_number.includes(search) ||
+        c.employee.toLowerCase().includes(search.toLowerCase()) ||
+        c.theme.toLowerCase().includes(search.toLowerCase()) ||
+        c.company.toLowerCase().includes(search.toLowerCase()) ||
+        c.responsible.toLowerCase().includes(search.toLowerCase());
+      const matchesCompany = companyFilter === "all" || c.company_id === companyFilter;
+      const matchesStatus = statusTab === "todos" || c.status === statusTab;
+      const matchesResponsible = responsibleFilter === "all" || c.responsible === responsibleFilter;
+      const matchesTheme = themeFilter === "all" || c.theme === themeFilter;
+      return matchesSearch && matchesCompany && matchesStatus && matchesResponsible && matchesTheme;
+    });
+
+    // Sort
+    result = [...result].sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case "employee":
+          cmp = a.employee.localeCompare(b.employee);
+          break;
+        case "filed_at":
+          cmp = new Date(a.filed_at).getTime() - new Date(b.filed_at).getTime();
+          break;
+        case "amount":
+          cmp = (a.amount ?? 0) - (b.amount ?? 0);
+          break;
+        case "next_deadline":
+          const da = a.next_deadline ? new Date(a.next_deadline).getTime() : Infinity;
+          const db = b.next_deadline ? new Date(b.next_deadline).getTime() : Infinity;
+          cmp = da - db;
+          break;
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+
+    return result;
+  }, [cases, search, companyFilter, statusTab, responsibleFilter, themeFilter, sortField, sortDir]);
 
   // Stats
   const stats = useMemo(() => {
@@ -307,18 +344,43 @@ export default function Processos() {
       const days = Math.ceil((new Date(c.next_deadline).getTime() - Date.now()) / 86400000);
       return days >= 0 && days <= 7;
     }).length;
+    const totalAmount = cases.reduce((sum, c) => sum + (c.amount ?? 0), 0);
     return {
       total: cases.length,
       emAndamento: cases.filter((c) => c.status === "em_andamento").length,
       audiencias: cases.filter((c) => c.status === "audiencia_marcada").length,
       urgentDeadlines,
+      totalAmount,
     };
   }, [cases]);
 
-  // Kanban data
-  const kanbanStatuses: CaseStatus[] = ["novo", "em_andamento", "audiencia_marcada", "sentenca", "recurso", "encerrado"];
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { todos: cases.length };
+    (Object.keys(statusLabels) as CaseStatus[]).forEach((s) => {
+      counts[s] = cases.filter((c) => c.status === s).length;
+    });
+    return counts;
+  }, [cases]);
 
-  const activeFiltersCount = [companyFilter, statusFilter, responsibleFilter, themeFilter].filter(f => f !== "all").length;
+  const kanbanStatuses: CaseStatus[] = ["novo", "em_andamento", "audiencia_marcada", "sentenca", "recurso", "encerrado"];
+  const activeFiltersCount = [companyFilter, responsibleFilter, themeFilter].filter(f => f !== "all").length + (search.trim() ? 1 : 0);
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDir("asc");
+    }
+  };
+
+  const clearAll = () => {
+    setSearch("");
+    setCompanyFilter("all");
+    setStatusTab("todos");
+    setResponsibleFilter("all");
+    setThemeFilter("all");
+  };
 
   return (
     <div className="p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -329,7 +391,8 @@ export default function Processos() {
             {isExternal ? "Meus Processos" : "Processos"}
           </h1>
           <p className="text-sm text-muted-foreground font-medium">
-            <span className="text-foreground font-semibold">{filtered.length}</span> processos encontrados
+            <span className="text-foreground font-semibold">{filtered.length}</span> de {cases.length} processos
+            {activeFiltersCount > 0 && <span className="text-primary"> · {activeFiltersCount} filtro(s)</span>}
           </p>
           {isExternal && (
             <Badge variant="outline" className="mt-1 text-[10px] gap-1">
@@ -338,7 +401,6 @@ export default function Processos() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          {/* View toggle */}
           <div className="hidden sm:flex items-center rounded-lg border bg-muted/50 p-0.5">
             {([
               { mode: "list" as ViewMode, icon: <LayoutList className="h-3.5 w-3.5" />, label: "Lista" },
@@ -375,47 +437,96 @@ export default function Processos() {
       </div>
 
       {/* Stats Cards */}
-      <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+      <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-5 sm:gap-3">
         <StatCard label="Total de Processos" value={stats.total} icon={<Scale className="h-5 w-5 text-primary" />} color="bg-card" />
         <StatCard label="Em Andamento" value={stats.emAndamento} icon={<TrendingUp className="h-5 w-5 text-primary" />} color="bg-primary/5" />
         <StatCard label="Audiências Marcadas" value={stats.audiencias} icon={<Gavel className="h-5 w-5 text-warning" />} color="bg-warning/5" />
         <StatCard label="Prazos Próximos (7d)" value={stats.urgentDeadlines} icon={<AlertTriangle className="h-5 w-5 text-destructive" />} color="bg-destructive/5" />
+        <StatCard
+          label="Valor Total"
+          value={formatCurrency(stats.totalAmount) ?? "–"}
+          icon={<DollarSign className="h-5 w-5 text-success" />}
+          color="bg-success/5 hidden lg:flex"
+        />
       </div>
 
-      {/* Search + Filters */}
+      {/* Status Tabs */}
+      <Tabs value={statusTab} onValueChange={setStatusTab}>
+        <div className="mb-4 overflow-x-auto scrollbar-hide">
+          <TabsList className="w-max">
+            <TabsTrigger value="todos">Todos ({statusCounts.todos})</TabsTrigger>
+            {(Object.entries(statusLabels) as [CaseStatus, string][]).map(([k, v]) => (
+              statusCounts[k] > 0 && (
+                <TabsTrigger key={k} value={k} className="gap-1">
+                  {statusIcons[k]}
+                  {v} ({statusCounts[k]})
+                </TabsTrigger>
+              )
+            ))}
+          </TabsList>
+        </div>
+      </Tabs>
+
+      {/* Search + Sort + Filters */}
       <div className="mb-5 space-y-2">
         <div className="flex flex-col gap-2 sm:flex-row">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Buscar por nº, nome, tema ou empresa..."
+              placeholder="Buscar por nº, nome, tema, empresa ou responsável..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-11 rounded-xl border-input/60 bg-background/50 transition-all focus:border-primary focus:shadow-glow-primary/10"
+              className="pl-9 pr-9 h-10 rounded-xl border-input/60 bg-background/50 transition-all focus:border-primary focus:shadow-glow-primary/10"
               aria-label="Buscar processos"
             />
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className={cn("gap-1.5 h-11 rounded-xl sm:w-auto", activeFiltersCount > 0 && "border-primary text-primary")}
-            onClick={() => setShowFilters(!showFilters)}
-          >
-            <Filter className="h-4 w-4" />
-            Filtros
-            {activeFiltersCount > 0 && (
-              <Badge className="h-5 min-w-5 justify-center text-[9px] px-1.5" style={{ background: "var(--gradient-primary)" }}>
-                {activeFiltersCount}
-              </Badge>
+            {search && (
+              <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+                <X className="h-3.5 w-3.5" />
+              </button>
             )}
-          </Button>
+          </div>
+          <div className="flex gap-2">
+            {/* Sort */}
+            <Select value={sortField} onValueChange={(v) => setSortField(v as SortField)}>
+              <SelectTrigger className="h-10 w-[160px] rounded-xl text-xs">
+                <ArrowUpDown className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                {(Object.entries(sortLabels) as [SortField, string][]).map(([k, v]) => (
+                  <SelectItem key={k} value={k}>{v}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl shrink-0" onClick={() => setSortDir((d) => d === "asc" ? "desc" : "asc")}>
+                  {sortDir === "asc" ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p className="text-xs">{sortDir === "asc" ? "Crescente" : "Decrescente"}</p></TooltipContent>
+            </Tooltip>
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn("gap-1.5 h-10 rounded-xl", activeFiltersCount > 0 && "border-primary text-primary")}
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <Filter className="h-4 w-4" />
+              <span className="hidden sm:inline">Filtros</span>
+              {activeFiltersCount > 0 && (
+                <Badge className="h-5 min-w-5 justify-center text-[9px] px-1.5" style={{ background: "var(--gradient-primary)" }}>
+                  {activeFiltersCount}
+                </Badge>
+              )}
+            </Button>
+          </div>
         </div>
 
-        {/* Advanced Filters (collapsible) */}
         {showFilters && (
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 animate-in fade-in slide-in-from-bottom-2 duration-300 rounded-xl border bg-card/50 p-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 animate-in fade-in slide-in-from-bottom-2 duration-300 rounded-xl border bg-card/50 p-3">
             <Select value={companyFilter} onValueChange={setCompanyFilter}>
-              <SelectTrigger className="h-9 rounded-lg text-xs" aria-label="Filtrar por empresa">
+              <SelectTrigger className="h-9 rounded-lg text-xs">
                 <Building2 className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
                 <SelectValue placeholder="Empresa" />
               </SelectTrigger>
@@ -426,20 +537,8 @@ export default function Processos() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-9 rounded-lg text-xs" aria-label="Filtrar por status">
-                <Scale className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                <SelectItem value="all">Todos os status</SelectItem>
-                {(Object.entries(statusLabels) as [CaseStatus, string][]).map(([k, v]) => (
-                  <SelectItem key={k} value={k}>{v}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
             <Select value={responsibleFilter} onValueChange={setResponsibleFilter}>
-              <SelectTrigger className="h-9 rounded-lg text-xs" aria-label="Filtrar por responsável">
+              <SelectTrigger className="h-9 rounded-lg text-xs">
                 <User className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
                 <SelectValue placeholder="Responsável" />
               </SelectTrigger>
@@ -451,7 +550,7 @@ export default function Processos() {
               </SelectContent>
             </Select>
             <Select value={themeFilter} onValueChange={setThemeFilter}>
-              <SelectTrigger className="h-9 rounded-lg text-xs" aria-label="Filtrar por tema">
+              <SelectTrigger className="h-9 rounded-lg text-xs">
                 <Gavel className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
                 <SelectValue placeholder="Tema" />
               </SelectTrigger>
@@ -463,18 +562,8 @@ export default function Processos() {
               </SelectContent>
             </Select>
             {activeFiltersCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-xs text-muted-foreground h-9 sm:col-span-2 lg:col-span-4"
-                onClick={() => {
-                  setCompanyFilter("all");
-                  setStatusFilter("all");
-                  setResponsibleFilter("all");
-                  setThemeFilter("all");
-                }}
-              >
-                Limpar filtros
+              <Button variant="ghost" size="sm" className="text-xs text-muted-foreground h-9 sm:col-span-3" onClick={clearAll}>
+                Limpar todos os filtros
               </Button>
             )}
           </div>
@@ -514,6 +603,11 @@ export default function Processos() {
             </div>
             <p className="text-sm font-semibold text-muted-foreground">Nenhum processo encontrado</p>
             <p className="text-xs text-muted-foreground/60 mt-1">Tente ajustar os filtros de busca</p>
+            {activeFiltersCount > 0 && (
+              <Button variant="outline" size="sm" className="mt-3 text-xs" onClick={clearAll}>
+                Limpar filtros
+              </Button>
+            )}
           </div>
         )}
       </TooltipProvider>
