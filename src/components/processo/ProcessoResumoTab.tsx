@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CalendarDays, Clock, User, Phone, Mail, MessageCircle, Plus, X, UserCheck } from "lucide-react";
+import { CalendarDays, Clock, User, Phone, Mail, MessageCircle, Plus, X, UserCheck, Pencil, Check as CheckIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +19,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { mockResponsaveis, type Case, type Responsavel } from "@/data/mock";
 import { toast } from "@/hooks/use-toast";
@@ -45,6 +52,11 @@ interface Props {
 }
 
 export default function ProcessoResumoTab({ caso }: Props) {
+  // Editable responsible & lawyer
+  const [responsible, setResponsible] = useState(caso.responsible);
+  const [lawyer, setLawyer] = useState(caso.lawyer);
+  const [editingField, setEditingField] = useState<"responsible" | "lawyer" | null>(null);
+
   // Initialize linked responsáveis from caso's responsible + lawyer
   const initialLinked = [
     mockResponsaveis.find((r) => r.name === caso.responsible),
@@ -89,7 +101,21 @@ export default function ProcessoResumoTab({ caso }: Props) {
     setRemoveId(null);
   };
 
+  const handleFieldChange = (field: "responsible" | "lawyer", value: string) => {
+    if (field === "responsible") {
+      setResponsible(value);
+      toast({ title: `Responsável alterado para ${value}` });
+    } else {
+      setLawyer(value);
+      toast({ title: `Advogado(a) alterado(a) para ${value}` });
+    }
+    setEditingField(null);
+  };
+
   const removeTarget = mockResponsaveis.find((r) => r.id === removeId);
+
+  // Unique names for selects
+  const uniqueResponsavelNames = Array.from(new Set(mockResponsaveis.filter((r) => r.active).map((r) => r.name)));
 
   return (
     <>
@@ -97,8 +123,73 @@ export default function ProcessoResumoTab({ caso }: Props) {
         <div className="rounded-lg border bg-card p-4 space-y-3">
           <h3 className="text-sm font-semibold">Dados do Processo</h3>
           <Info icon={<ScaleIcon />} label="Tribunal" value={caso.court} />
-          <Info icon={<User className="h-4 w-4" />} label="Responsável" value={caso.responsible} />
-          <Info icon={<User className="h-4 w-4" />} label="Advogado" value={caso.lawyer} />
+
+          {/* Responsável editável */}
+          <div className="flex items-start gap-2 text-sm">
+            <span className="mt-0.5 text-muted-foreground"><User className="h-4 w-4" /></span>
+            <div className="flex-1">
+              <span className="text-muted-foreground">Responsável: </span>
+              {editingField === "responsible" ? (
+                <Select value={responsible} onValueChange={(v) => handleFieldChange("responsible", v)}>
+                  <SelectTrigger className="mt-1 h-8 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {uniqueResponsavelNames.map((name) => (
+                      <SelectItem key={name} value={name}>{name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <span className="font-medium">
+                  {responsible}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="ml-1 h-5 w-5 text-muted-foreground hover:text-primary"
+                    onClick={() => setEditingField("responsible")}
+                    title="Alterar responsável"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Advogado editável */}
+          <div className="flex items-start gap-2 text-sm">
+            <span className="mt-0.5 text-muted-foreground"><User className="h-4 w-4" /></span>
+            <div className="flex-1">
+              <span className="text-muted-foreground">Advogado(a): </span>
+              {editingField === "lawyer" ? (
+                <Select value={lawyer} onValueChange={(v) => handleFieldChange("lawyer", v)}>
+                  <SelectTrigger className="mt-1 h-8 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {uniqueResponsavelNames.map((name) => (
+                      <SelectItem key={name} value={name}>{name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <span className="font-medium">
+                  {lawyer}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="ml-1 h-5 w-5 text-muted-foreground hover:text-primary"
+                    onClick={() => setEditingField("lawyer")}
+                    title="Alterar advogado(a)"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                </span>
+              )}
+            </div>
+          </div>
+
           <Info label="Tema" value={caso.theme} />
           <Info label="Ajuizamento" value={new Date(caso.filed_at).toLocaleDateString("pt-BR")} />
         </div>
