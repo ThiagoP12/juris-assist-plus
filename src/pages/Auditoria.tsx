@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { Shield, Search, Filter, Eye, Download, Trash2, Edit, CheckCircle2, User, FileText, Lock } from "lucide-react";
+import { Shield, Search, Filter, Download, Trash2, Edit, CheckCircle2, User, Lock, Calendar, BarChart3 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { toast } from "@/hooks/use-toast";
 
 type AuditAction = "status_alterado" | "prazo_alterado" | "arquivo_excluido" | "evidencia_validada" | "acesso_sigiloso" | "download" | "login" | "permissao_alterada";
 
@@ -41,17 +43,6 @@ const actionIcons: Record<AuditAction, React.ReactNode> = {
   permissao_alterada: <Shield className="h-3.5 w-3.5 text-warning" />,
 };
 
-const actionSeverity: Record<AuditAction, string> = {
-  status_alterado: "info",
-  prazo_alterado: "warning",
-  arquivo_excluido: "destructive",
-  evidencia_validada: "info",
-  acesso_sigiloso: "destructive",
-  download: "info",
-  login: "muted",
-  permissao_alterada: "warning",
-};
-
 const mockAuditLogs: AuditLog[] = [
   { id: "al1", action: "acesso_sigiloso", user: "Ana Jurídico", description: "Acessou processo sigiloso", case_number: "0009876-12.2024.5.03.0003", ip: "192.168.1.10", created_at: "2026-02-16T15:30:00" },
   { id: "al2", action: "download", user: "Ana Jurídico", description: "Download de registro_cftv_corredor.mp4 (com marca d'água)", case_number: "0009876-12.2024.5.03.0003", ip: "192.168.1.10", created_at: "2026-02-16T15:31:00" },
@@ -75,10 +66,19 @@ const mockAuditLogs: AuditLog[] = [
 
 export default function Auditoria() {
   const [actionFilter, setActionFilter] = useState("todas");
+  const [userFilter, setUserFilter] = useState("todos");
   const [searchQuery, setSearchQuery] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [tab, setTab] = useState("logs");
+
+  const uniqueUsers = [...new Set(mockAuditLogs.map((l) => l.user))];
 
   const filtered = mockAuditLogs.filter((log) => {
     if (actionFilter !== "todas" && log.action !== actionFilter) return false;
+    if (userFilter !== "todos" && log.user !== userFilter) return false;
+    if (dateFrom && new Date(log.created_at) < new Date(dateFrom)) return false;
+    if (dateTo && new Date(log.created_at) > new Date(dateTo + "T23:59:59")) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return log.user.toLowerCase().includes(q) || log.description.toLowerCase().includes(q) || (log.case_number || "").includes(q);
@@ -86,70 +86,183 @@ export default function Auditoria() {
     return true;
   });
 
+  // Stats
+  const actionCounts = mockAuditLogs.reduce((acc, l) => {
+    acc[l.action] = (acc[l.action] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const userCounts = mockAuditLogs.reduce((acc, l) => {
+    acc[l.user] = (acc[l.user] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const handleExport = () => {
+    toast({ title: "📥 Exportação CSV", description: `${filtered.length} registros exportados. (Demo)` });
+  };
+
   return (
     <div className="p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <Shield className="h-6 w-6 text-primary" /> Logs de Auditoria
-        </h1>
-        <p className="text-sm text-muted-foreground">Todas as ações críticas registradas no sistema</p>
-      </div>
-
-      {/* Filters */}
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row">
-        <div className="relative flex-1 max-w-xs">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Buscar por usuário, ação, processo..." className="h-9 pl-8 text-xs" />
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <Shield className="h-6 w-6 text-primary" /> Logs de Auditoria
+          </h1>
+          <p className="text-sm text-muted-foreground">Todas as ações críticas registradas no sistema</p>
         </div>
-        <Select value={actionFilter} onValueChange={setActionFilter}>
-          <SelectTrigger className="w-[180px] h-9 text-xs">
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todas">Todas as ações</SelectItem>
-            {Object.entries(actionLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleExport}>
+          <Download className="h-3.5 w-3.5" /> Exportar CSV
+        </Button>
       </div>
 
-      {/* Summary badges */}
-      <div className="mb-4 flex flex-wrap gap-2">
-        <Badge variant="outline" className="text-[10px]">{filtered.length} registros</Badge>
-        <Badge className="text-[10px] bg-destructive/10 text-destructive border-0">
-          {mockAuditLogs.filter((l) => l.action === "acesso_sigiloso").length} acessos sigilosos
-        </Badge>
-        <Badge className="text-[10px] bg-warning/15 text-warning border-0">
-          {mockAuditLogs.filter((l) => l.action === "arquivo_excluido").length} exclusões
-        </Badge>
-      </div>
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="logs" className="text-xs">Logs ({filtered.length})</TabsTrigger>
+          <TabsTrigger value="estatisticas" className="text-xs gap-1.5">
+            <BarChart3 className="h-3.5 w-3.5" /> Estatísticas
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Logs */}
-      <div className="space-y-2">
-        {filtered.map((log) => (
-          <div key={log.id} className={cn(
-            "flex items-start gap-3 rounded-xl border bg-card p-4 transition-colors",
-            log.action === "acesso_sigiloso" && "border-l-4 border-l-destructive",
-            log.action === "arquivo_excluido" && "border-l-4 border-l-warning",
-          )}>
-            <div className="mt-0.5 shrink-0">{actionIcons[log.action]}</div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-medium">{log.description}</p>
-                <Badge variant="outline" className="text-[9px]">{actionLabels[log.action]}</Badge>
+        <TabsContent value="logs">
+          {/* Filters */}
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <div className="relative flex-1 max-w-xs">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Buscar..." className="h-9 pl-8 text-xs" />
+            </div>
+            <Select value={actionFilter} onValueChange={setActionFilter}>
+              <SelectTrigger className="w-[170px] h-9 text-xs">
+                <Filter className="mr-1.5 h-3.5 w-3.5" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todas">Todas as ações</SelectItem>
+                {Object.entries(actionLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={userFilter} onValueChange={setUserFilter}>
+              <SelectTrigger className="w-[170px] h-9 text-xs">
+                <User className="mr-1.5 h-3.5 w-3.5" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os usuários</SelectItem>
+                {uniqueUsers.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <div className="flex gap-1.5 items-center">
+              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-9 w-[130px] text-xs" />
+              <span className="text-xs text-muted-foreground">a</span>
+              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-9 w-[130px] text-xs" />
+            </div>
+          </div>
+
+          {/* Summary badges */}
+          <div className="mb-4 flex flex-wrap gap-2">
+            <Badge variant="outline" className="text-[10px]">{filtered.length} registros</Badge>
+            <Badge className="text-[10px] bg-destructive/10 text-destructive border-0">
+              {mockAuditLogs.filter((l) => l.action === "acesso_sigiloso").length} acessos sigilosos
+            </Badge>
+            <Badge className="text-[10px] bg-warning/15 text-warning border-0">
+              {mockAuditLogs.filter((l) => l.action === "arquivo_excluido").length} exclusões
+            </Badge>
+            <Badge className="text-[10px] bg-primary/10 text-primary border-0">
+              {mockAuditLogs.filter((l) => l.action === "download").length} downloads
+            </Badge>
+          </div>
+
+          {/* Logs */}
+          <div className="space-y-2">
+            {filtered.map((log) => (
+              <div key={log.id} className={cn(
+                "flex items-start gap-3 rounded-xl border bg-card p-4 transition-colors",
+                log.action === "acesso_sigiloso" && "border-l-4 border-l-destructive",
+                log.action === "arquivo_excluido" && "border-l-4 border-l-warning",
+              )}>
+                <div className="mt-0.5 shrink-0">{actionIcons[log.action]}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-medium">{log.description}</p>
+                    <Badge variant="outline" className="text-[9px]">{actionLabels[log.action]}</Badge>
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                    <span className="flex items-center gap-1"><User className="h-3 w-3" /> {log.user}</span>
+                    {log.case_number && <span>· Processo: {log.case_number}</span>}
+                    {log.ip && <span>· IP: {log.ip}</span>}
+                  </div>
+                </div>
+                <span className="shrink-0 text-[10px] text-muted-foreground whitespace-nowrap">
+                  {new Date(log.created_at).toLocaleString("pt-BR")}
+                </span>
               </div>
-              <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
-                <span className="flex items-center gap-1"><User className="h-3 w-3" /> {log.user}</span>
-                {log.case_number && <span>· Processo: {log.case_number}</span>}
-                {log.ip && <span>· IP: {log.ip}</span>}
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="estatisticas">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {/* By action type */}
+            <div className="rounded-xl border bg-card p-4">
+              <h3 className="text-sm font-semibold mb-3">Por Tipo de Ação</h3>
+              <div className="space-y-2">
+                {Object.entries(actionCounts).sort((a, b) => b[1] - a[1]).map(([action, count]) => (
+                  <div key={action} className="flex items-center gap-2">
+                    <div className="shrink-0">{actionIcons[action as AuditAction]}</div>
+                    <span className="flex-1 text-xs">{actionLabels[action as AuditAction]}</span>
+                    <Badge variant="outline" className="text-[10px]">{count}</Badge>
+                  </div>
+                ))}
               </div>
             </div>
-            <span className="shrink-0 text-[10px] text-muted-foreground whitespace-nowrap">
-              {new Date(log.created_at).toLocaleString("pt-BR")}
-            </span>
+
+            {/* By user */}
+            <div className="rounded-xl border bg-card p-4">
+              <h3 className="text-sm font-semibold mb-3">Por Usuário</h3>
+              <div className="space-y-2">
+                {Object.entries(userCounts).sort((a, b) => b[1] - a[1]).map(([user, count]) => {
+                  const pct = Math.round((count / mockAuditLogs.length) * 100);
+                  return (
+                    <div key={user}>
+                      <div className="flex justify-between text-xs mb-0.5">
+                        <span className="font-medium">{user}</span>
+                        <span className="text-muted-foreground">{count} ({pct}%)</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-muted">
+                        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Security summary */}
+            <div className="rounded-xl border bg-card p-4">
+              <h3 className="text-sm font-semibold mb-3">Resumo de Segurança</h3>
+              <div className="space-y-3">
+                <div className="rounded-lg bg-destructive/5 p-3">
+                  <p className="text-xs font-semibold text-destructive">Acessos Sigilosos</p>
+                  <p className="text-2xl font-bold text-destructive">{actionCounts["acesso_sigiloso"] || 0}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {mockAuditLogs.filter((l) => l.action === "acesso_sigiloso" && l.description.includes("NEGADO")).length} negados
+                  </p>
+                </div>
+                <div className="rounded-lg bg-warning/5 p-3">
+                  <p className="text-xs font-semibold text-warning">Exclusões de Arquivo</p>
+                  <p className="text-2xl font-bold text-warning">{actionCounts["arquivo_excluido"] || 0}</p>
+                </div>
+                <div className="rounded-lg bg-info/5 p-3">
+                  <p className="text-xs font-semibold text-info">Downloads c/ Marca d'água</p>
+                  <p className="text-2xl font-bold text-info">
+                    {mockAuditLogs.filter((l) => l.action === "download" && l.description.includes("marca d'água")).length}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
-        ))}
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
