@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth, roleLabels } from "@/contexts/AuthContext";
+import { useAlerts } from "@/contexts/AlertsContext";
 import JuriaChatButton from "@/components/ai/JuriaChatButton";
 
 const allNavItems = [
@@ -36,6 +37,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const isMobile = useIsMobile();
   const { user, logout, hasRole } = useAuth();
+  const { untreatedCount } = useAlerts();
 
   const isExternal = hasRole(["advogado_externo"]);
   const navItems = isExternal ? allNavItems.filter((i) => i.external) : allNavItems;
@@ -82,10 +84,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                   )}
                 >
                   <div className={cn(
-                    "flex h-6 w-6 items-center justify-center rounded-full transition-all",
+                    "relative flex h-6 w-6 items-center justify-center rounded-full transition-all",
                     active && "bg-primary/10"
                   )}>
                     <item.icon className={cn("h-4 w-4", active && "scale-110")} />
+                    {item.path === "/alertas" && untreatedCount > 0 && (
+                      <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[8px] font-bold text-destructive-foreground">
+                        {untreatedCount}
+                      </span>
+                    )}
                   </div>
                   {item.mobileLabel}
                 </Link>
@@ -133,7 +140,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               )}
             >
               <item.icon className="h-4 w-4" />
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {item.path === "/alertas" && untreatedCount > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
+                  {untreatedCount}
+                </span>
+              )}
             </Link>
           ))}
         </nav>

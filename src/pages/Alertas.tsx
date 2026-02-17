@@ -2,15 +2,17 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Bell, CalendarDays, Clock, FileText, CheckCircle2, BellOff,
-  ExternalLink, UserPlus, AlarmClock, MoreHorizontal, Eye,
+  ExternalLink, UserPlus, AlarmClock, MoreHorizontal, ArrowUpRight,
+  Mail, AlertTriangle, TrendingUp,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { mockAlerts, mockCases, type Alert, type AlertType, type AlertSeverity } from "@/data/mock";
+import { mockCases, type Alert, type AlertType, type AlertSeverity } from "@/data/mock";
+import { useAlerts } from "@/contexts/AlertsContext";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 
@@ -40,39 +42,32 @@ const severityBadge: Record<AlertSeverity, string> = {
   urgente: "bg-destructive/10 text-destructive",
 };
 
-type TabValue = "todos" | "importantes" | "prazo" | "audiencia" | "tarefa" | "prova" | "publicacao";
+type MainTab = "alertas" | "escalonamento" | "emails";
+type AlertTab = "todos" | "importantes" | "prazo" | "audiencia" | "tarefa" | "prova" | "publicacao";
 
 export default function Alertas() {
-  const [tab, setTab] = useState<TabValue>("todos");
-  const [alerts, setAlerts] = useState<Alert[]>(mockAlerts);
+  const [mainTab, setMainTab] = useState<MainTab>("alertas");
+  const [alertTab, setAlertTab] = useState<AlertTab>("todos");
+  const { alerts, escalations, emailLogs, untreatedCount, toggleTreated, snooze } = useAlerts();
 
   const filtered = (() => {
-    switch (tab) {
+    switch (alertTab) {
       case "todos": return alerts;
       case "importantes": return alerts.filter((a) => a.severity === "urgente" || a.severity === "atencao");
-      default: return alerts.filter((a) => a.type === tab);
+      default: return alerts.filter((a) => a.type === alertTab);
     }
   })();
 
-  const untreatedCount = alerts.filter((a) => !a.treated).length;
   const untreatedFiltered = filtered.filter((a) => !a.treated);
   const treatedFiltered = filtered.filter((a) => a.treated);
 
-  const toggleTreated = (id: string) => {
-    setAlerts((prev) => prev.map((a) => a.id === id ? { ...a, treated: !a.treated } : a));
-  };
-
-  const snooze = (id: string, duration: string) => {
-    toast({ title: "Alerta adiado", description: `Adiado por ${duration}. (Demo – sem backend)` });
-  };
-
   const assignOwner = (id: string) => {
-    toast({ title: "Atribuir dono", description: "Funcionalidade disponível com Lovable Cloud ativo." });
+    toast({ title: "Atribuir dono", description: "Funcionalidade disponível com backend ativo." });
   };
 
   const getCaseForAlert = (a: Alert) => a.case_number ? mockCases.find((c) => c.case_number === a.case_number) : undefined;
 
-  const tabCounts: Record<TabValue, number> = {
+  const alertTabCounts: Record<AlertTab, number> = {
     todos: alerts.length,
     importantes: alerts.filter((a) => a.severity === "urgente" || a.severity === "atencao").length,
     prazo: alerts.filter((a) => a.type === "prazo").length,
@@ -96,57 +91,185 @@ export default function Alertas() {
         </p>
       </div>
 
-      {/* Tabs */}
-      <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)}>
-        <div className="mb-4 overflow-x-auto scrollbar-hide">
-          <TabsList className="w-max">
-            {(["todos","importantes","prazo","audiencia","tarefa","prova","publicacao"] as TabValue[]).map((t) => (
-              <TabsTrigger key={t} value={t} className="gap-1 text-xs">
-                {t === "todos" ? "Todos" :
-                 t === "importantes" ? "Importantes" :
-                 t === "prazo" ? "Prazos" :
-                 t === "audiencia" ? "Audiências" :
-                 t === "tarefa" ? "Minhas Tarefas" :
-                 t === "prova" ? "Provas/SLA" : "Publicações"}
-                {tabCounts[t] > 0 && (
-                  <span className="ml-0.5 text-[9px] text-muted-foreground">({tabCounts[t]})</span>
-                )}
-              </TabsTrigger>
-            ))}
+      {/* Main Tabs: Alertas / Escalonamento / E-mails */}
+      <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as MainTab)}>
+        <div className="mb-4">
+          <TabsList>
+            <TabsTrigger value="alertas" className="gap-1.5 text-xs">
+              <Bell className="h-3.5 w-3.5" /> Alertas
+              {untreatedCount > 0 && (
+                <Badge className="ml-1 h-4 min-w-4 rounded-full bg-destructive px-1 text-[9px] text-destructive-foreground">{untreatedCount}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="escalonamento" className="gap-1.5 text-xs">
+              <TrendingUp className="h-3.5 w-3.5" /> Escalonamento
+              {escalations.length > 0 && (
+                <Badge className="ml-1 h-4 min-w-4 rounded-full bg-warning px-1 text-[9px] text-warning-foreground">{escalations.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="emails" className="gap-1.5 text-xs">
+              <Mail className="h-3.5 w-3.5" /> E-mails ({emailLogs.length})
+            </TabsTrigger>
           </TabsList>
         </div>
+
+        {/* ALERTAS TAB */}
+        <TabsContent value="alertas">
+          {/* Sub-tabs */}
+          <Tabs value={alertTab} onValueChange={(v) => setAlertTab(v as AlertTab)}>
+            <div className="mb-4 overflow-x-auto scrollbar-hide">
+              <TabsList className="w-max">
+                {(["todos","importantes","prazo","audiencia","tarefa","prova","publicacao"] as AlertTab[]).map((t) => (
+                  <TabsTrigger key={t} value={t} className="gap-1 text-xs">
+                    {t === "todos" ? "Todos" :
+                     t === "importantes" ? "Importantes" :
+                     t === "prazo" ? "Prazos" :
+                     t === "audiencia" ? "Audiências" :
+                     t === "tarefa" ? "Tarefas" :
+                     t === "prova" ? "Provas/SLA" : "Publicações"}
+                    {alertTabCounts[t] > 0 && (
+                      <span className="ml-0.5 text-[9px] text-muted-foreground">({alertTabCounts[t]})</span>
+                    )}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
+          </Tabs>
+
+          {/* Auto-alert info card */}
+          <div className="mb-4 rounded-lg border border-primary/20 bg-primary/5 p-3">
+            <div className="flex items-center gap-2 text-xs">
+              <AlarmClock className="h-4 w-4 text-primary" />
+              <span className="font-semibold text-primary">Alertas automáticos ativos</span>
+            </div>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Audiências e prazos geram alertas em <strong>7 dias</strong>, <strong>2 dias</strong> e <strong>2 horas</strong> antes do evento.
+              Alertas urgentes não tratados são escalonados automaticamente para gestores.
+            </p>
+          </div>
+
+          {/* Untreated */}
+          {untreatedFiltered.length > 0 && (
+            <div className="mb-6">
+              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Não Tratados</h2>
+              <div className="space-y-2">
+                {untreatedFiltered.map((a) => (
+                  <AlertCard key={a.id} alert={a} caso={getCaseForAlert(a)} onToggle={toggleTreated} onSnooze={snooze} onAssign={assignOwner} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Treated */}
+          {treatedFiltered.length > 0 && (
+            <div>
+              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tratados</h2>
+              <div className="space-y-2">
+                {treatedFiltered.map((a) => (
+                  <AlertCard key={a.id} alert={a} caso={getCaseForAlert(a)} onToggle={toggleTreated} onSnooze={snooze} onAssign={assignOwner} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {filtered.length === 0 && (
+            <div className="rounded-xl border border-dashed p-12 text-center">
+              <BellOff className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">Nenhum alerta encontrado.</p>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ESCALONAMENTO TAB */}
+        <TabsContent value="escalonamento">
+          <div className="mb-4 rounded-lg border border-warning/20 bg-warning/5 p-3">
+            <div className="flex items-center gap-2 text-xs">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              <span className="font-semibold text-warning">Regra de Escalonamento</span>
+            </div>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Alertas <strong>urgentes</strong> não tratados após <strong>4 horas</strong> são escalonados automaticamente para o gestor responsável.
+              Um segundo escalonamento ocorre após <strong>24 horas</strong> para a diretoria.
+            </p>
+          </div>
+
+          {escalations.length === 0 ? (
+            <div className="rounded-xl border border-dashed p-12 text-center">
+              <TrendingUp className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">Nenhum escalonamento registrado.</p>
+              <p className="text-xs text-muted-foreground mt-1">Aguarde... escalonamentos são simulados automaticamente.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {escalations.map((esc) => (
+                <div key={esc.id} className="rounded-xl border-l-4 border-l-warning bg-warning/5 p-4">
+                  <div className="flex items-start gap-3">
+                    <ArrowUpRight className="mt-0.5 h-4 w-4 text-warning shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold">{esc.alert_title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Escalonado para: <span className="font-medium text-foreground">{esc.escalated_to}</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">{esc.reason}</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        {new Date(esc.created_at).toLocaleString("pt-BR")}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* EMAILS TAB */}
+        <TabsContent value="emails">
+          <div className="mb-4 rounded-lg border border-info/20 bg-info/5 p-3">
+            <div className="flex items-center gap-2 text-xs">
+              <Mail className="h-4 w-4 text-info" />
+              <span className="font-semibold text-info">Notificações por E-mail</span>
+            </div>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Cada alerta gerado envia automaticamente um e-mail para os responsáveis configurados.
+              E-mails de escalonamento são enviados separadamente para gestores.
+            </p>
+          </div>
+
+          {emailLogs.length === 0 ? (
+            <div className="rounded-xl border border-dashed p-12 text-center">
+              <Mail className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">Nenhum e-mail enviado ainda.</p>
+              <p className="text-xs text-muted-foreground mt-1">Aguarde... e-mails são simulados automaticamente.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {emailLogs.map((log) => (
+                <div key={log.id} className="rounded-xl border bg-card p-4">
+                  <div className="flex items-start gap-3">
+                    <Mail className={cn("mt-0.5 h-4 w-4 shrink-0", log.status === "enviado" ? "text-success" : "text-destructive")} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{log.subject}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Para: <span className="font-medium">{log.to}</span>
+                      </p>
+                      <div className="mt-1 flex items-center gap-2">
+                        <Badge className={cn("text-[9px] border-0",
+                          log.status === "enviado" ? "bg-success/15 text-success" : "bg-destructive/10 text-destructive"
+                        )}>
+                          {log.status === "enviado" ? "✓ Enviado" : "✗ Falha"}
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground">
+                          {new Date(log.sent_at).toLocaleString("pt-BR")}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
       </Tabs>
-
-      {/* Untreated Alerts */}
-      {untreatedFiltered.length > 0 && (
-        <div className="mb-6">
-          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Não Tratados</h2>
-          <div className="space-y-2">
-            {untreatedFiltered.map((a) => (
-              <AlertCard key={a.id} alert={a} caso={getCaseForAlert(a)} onToggle={toggleTreated} onSnooze={snooze} onAssign={assignOwner} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Treated Alerts */}
-      {treatedFiltered.length > 0 && (
-        <div>
-          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tratados</h2>
-          <div className="space-y-2">
-            {treatedFiltered.map((a) => (
-              <AlertCard key={a.id} alert={a} caso={getCaseForAlert(a)} onToggle={toggleTreated} onSnooze={snooze} onAssign={assignOwner} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {filtered.length === 0 && (
-        <div className="rounded-xl border border-dashed p-12 text-center">
-          <BellOff className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
-          <p className="text-sm text-muted-foreground">Nenhum alerta encontrado nesta categoria.</p>
-        </div>
-      )}
     </div>
   );
 }
@@ -165,7 +288,6 @@ function AlertCard({ alert: a, caso, onToggle, onSnooze, onAssign }: {
       a.treated && "opacity-50"
     )}>
       <div className="flex items-start gap-3">
-        {/* Icon */}
         <div className={cn("mt-0.5 shrink-0",
           a.severity === "urgente" ? "text-destructive" :
           a.severity === "atencao" ? "text-warning" : "text-info"
@@ -173,7 +295,6 @@ function AlertCard({ alert: a, caso, onToggle, onSnooze, onAssign }: {
           {typeIcons[a.type]}
         </div>
 
-        {/* Content */}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
             <p className="text-sm font-semibold">{a.title}</p>
@@ -197,7 +318,6 @@ function AlertCard({ alert: a, caso, onToggle, onSnooze, onAssign }: {
           </p>
         </div>
 
-        {/* Actions */}
         <div className="flex shrink-0 items-center gap-1">
           {caso && (
             <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
