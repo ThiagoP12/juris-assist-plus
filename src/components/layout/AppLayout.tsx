@@ -24,15 +24,15 @@ import { useAlerts } from "@/contexts/AlertsContext";
 import JuriaChatButton from "@/components/ai/JuriaChatButton";
 
 const allNavItems = [
-  { label: "Dashboard", mobileLabel: "Home", icon: LayoutDashboard, path: "/dashboard", external: true },
-  { label: "Tarefas", mobileLabel: "Tarefas", icon: ClipboardList, path: "/tarefas", external: true },
-  { label: "Agenda", mobileLabel: "Agenda", icon: CalendarDays, path: "/agenda", external: true },
-  { label: "Processos", mobileLabel: "Processos", icon: Scale, path: "/processos", external: true },
-  { label: "Responsáveis", mobileLabel: "Resp.", icon: UserCheck, path: "/responsaveis", external: false },
-  { label: "Usuários e Permissões", mobileLabel: "Usuários", icon: Users, path: "/usuarios", external: false },
-  { label: "Relatórios", mobileLabel: "Relatórios", icon: BarChart3, path: "/relatorios", external: false },
-  { label: "Alertas", mobileLabel: "Alertas", icon: Bell, path: "/alertas", external: true },
-  { label: "Menu", mobileLabel: "Menu", icon: Menu, path: "/menu", external: false },
+  { label: "Dashboard", mobileLabel: "Home", icon: LayoutDashboard, path: "/dashboard", external: true, adminOnly: false },
+  { label: "Tarefas", mobileLabel: "Tarefas", icon: ClipboardList, path: "/tarefas", external: true, adminOnly: false },
+  { label: "Agenda", mobileLabel: "Agenda", icon: CalendarDays, path: "/agenda", external: true, adminOnly: false },
+  { label: "Processos", mobileLabel: "Processos", icon: Scale, path: "/processos", external: true, adminOnly: false },
+  { label: "Responsáveis", mobileLabel: "Resp.", icon: UserCheck, path: "/responsaveis", external: false, adminOnly: true },
+  { label: "Usuários e Permissões", mobileLabel: "Usuários", icon: Users, path: "/usuarios", external: false, adminOnly: true },
+  { label: "Relatórios", mobileLabel: "Relatórios", icon: BarChart3, path: "/relatorios", external: false, adminOnly: false },
+  { label: "Alertas", mobileLabel: "Alertas", icon: Bell, path: "/alertas", external: true, adminOnly: true },
+  { label: "Menu", mobileLabel: "Menu", icon: Menu, path: "/menu", external: false, adminOnly: true },
 ];
 
 export default function AppLayout({ children }: { children: ReactNode }) {
@@ -42,7 +42,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const { untreatedCount } = useAlerts();
 
   const isExternal = hasRole(["advogado_externo"]);
-  const navItems = isExternal ? allNavItems.filter((i) => i.external) : allNavItems;
+  const isAdmin = hasRole(["admin"]);
+  const navItems = allNavItems.filter((i) => {
+    if (isExternal && !i.external) return false;
+    if (i.adminOnly && !isAdmin) return false;
+    return true;
+  });
   const mobileNavItems = navItems.filter((i) =>
     ["/dashboard", "/tarefas", "/processos", "/alertas", "/menu"].includes(i.path)
   );
