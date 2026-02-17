@@ -1,16 +1,17 @@
 import { useState } from "react";
 import {
   BarChart3, TrendingUp, Clock, AlertTriangle, CheckCircle2, FileText,
-  Building2, Filter, Download, Users, Shield, CalendarDays,
+  Building2, Filter, Download, Users, Shield, CalendarDays, Printer, Share2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, AreaChart, Area, RadarChart, Radar,
-  PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  PolarGrid, PolarAngleAxis, PolarRadiusAxis, LineChart, Line,
 } from "recharts";
 import {
   mockCases, mockTasks, mockDeadlines, mockEvidenceRequests,
@@ -46,6 +47,9 @@ export default function Relatorios() {
   const overdueTasks = mockTasks.filter((t) => t.status !== "concluida" && caseIds.has(t.case_id || "") && new Date(t.due_at) < new Date()).length;
   const totalEvidence = mockEvidenceItems.filter((i) => caseIds.has(i.case_id)).length;
   const validatedEvidence = mockEvidenceItems.filter((i) => caseIds.has(i.case_id) && i.status === "validado").length;
+  const completedTasks = mockTasks.filter((t) => t.status === "concluida").length;
+  const totalTasks = mockTasks.length;
+  const taskCompletionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   // Charts
   const statusData = (Object.entries(statusLabels) as [CaseStatus, string][])
@@ -91,84 +95,155 @@ export default function Relatorios() {
   const radarData = [
     { metric: "SLA Provas", value: slaPercent },
     { metric: "Alertas Tratados", value: mockAlerts.length > 0 ? Math.round((mockAlerts.filter((a) => a.treated).length / mockAlerts.length) * 100) : 100 },
-    { metric: "Tarefas Concluídas", value: mockTasks.length > 0 ? Math.round((mockTasks.filter((t) => t.status === "concluida").length / mockTasks.length) * 100) : 100 },
+    { metric: "Tarefas Concluídas", value: taskCompletionRate },
     { metric: "Provas Validadas", value: totalEvidence > 0 ? Math.round((validatedEvidence / totalEvidence) * 100) : 100 },
     { metric: "Prazos Cumpridos", value: mockDeadlines.length > 0 ? Math.round((mockDeadlines.filter((d) => d.status === "cumprido").length / mockDeadlines.length) * 100) : 100 },
   ];
+
+  // Risk score
+  const riskScore = Math.round(
+    (100 - slaPercent) * 0.3 +
+    criticalAlerts * 15 +
+    overdueTasks * 10
+  );
+  const riskLevel = riskScore >= 60 ? "Alto" : riskScore >= 30 ? "Médio" : "Baixo";
+  const riskColor = riskScore >= 60 ? "text-destructive" : riskScore >= 30 ? "text-warning" : "text-success";
 
   const handleExport = (format: string) => {
     toast({ title: `📥 Exportação ${format.toUpperCase()}`, description: `Relatório exportado em ${format.toUpperCase()}. (Demo)` });
   };
 
+  const handlePrint = () => {
+    toast({ title: "🖨️ Impressão", description: "Preparando relatório para impressão... (Demo)" });
+  };
+
   return (
-    <div className="p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      {/* Header */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Relatórios & Dashboards</h1>
-          <p className="text-sm text-muted-foreground">KPIs operacionais e análise executiva</p>
+          <h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">Dashboard Executivo</h1>
+          <p className="text-sm text-muted-foreground font-medium">KPIs operacionais, análise executiva e relatórios</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Select value={companyFilter} onValueChange={setCompanyFilter}>
-            <SelectTrigger className="w-[180px] h-9 text-xs">
+            <SelectTrigger className="w-[180px] h-9 text-xs rounded-xl" aria-label="Filtrar por empresa">
               <Filter className="mr-1.5 h-3.5 w-3.5" />
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="rounded-xl">
               <SelectItem value="todas">Todas as empresas</SelectItem>
               {mockCompanies.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => handleExport("pdf")}>
-            <Download className="h-3.5 w-3.5" /> PDF
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => handleExport("xlsx")}>
-            <Download className="h-3.5 w-3.5" /> Excel
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5 text-xs rounded-xl hover:shadow-card transition-all" onClick={() => handleExport("pdf")} aria-label="Exportar PDF">
+                  <Download className="h-3.5 w-3.5" /> PDF
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p className="text-xs">Exportar relatório em PDF</p></TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5 text-xs rounded-xl hover:shadow-card transition-all" onClick={() => handleExport("xlsx")} aria-label="Exportar Excel">
+                  <Download className="h-3.5 w-3.5" /> Excel
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p className="text-xs">Exportar dados em Excel</p></TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5 text-xs rounded-xl hover:shadow-card transition-all" onClick={() => handleExport("csv")} aria-label="Exportar CSV">
+                  <Share2 className="h-3.5 w-3.5" /> CSV
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p className="text-xs">Exportar dados em CSV</p></TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl hover:shadow-card transition-all" onClick={handlePrint} aria-label="Imprimir">
+                  <Printer className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p className="text-xs">Imprimir relatório</p></TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
 
+      {/* Executive Summary KPIs — always visible */}
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <KPICard icon={<CheckCircle2 />} label="SLA Provas 72h" value={`${slaPercent}%`} sub={`${slaMet}/${totalRequests.length} cumpridos`} color="text-success" bg="bg-success/10" trend={slaPercent >= 70 ? "up" : "down"} delay={0} />
+        <KPICard icon={<AlertTriangle />} label="Alertas Críticos" value={String(criticalAlerts)} sub="não tratados" color="text-destructive" bg="bg-destructive/10" trend={criticalAlerts === 0 ? "up" : "down"} delay={1} />
+        <KPICard icon={<Clock />} label="Tarefas Vencidas" value={String(overdueTasks)} sub="em atraso" color="text-warning" bg="bg-warning/10" trend={overdueTasks === 0 ? "up" : "down"} delay={2} />
+        <KPICard icon={<FileText />} label="Evidências" value={`${validatedEvidence}/${totalEvidence}`} sub="validadas" color="text-info" bg="bg-info/10" trend={validatedEvidence === totalEvidence ? "up" : "neutral"} delay={3} />
+        <KPICard icon={<Shield />} label="Risco Geral" value={riskLevel} sub={`Score: ${riskScore}`} color={riskColor} bg={riskScore >= 60 ? "bg-destructive/10" : riskScore >= 30 ? "bg-warning/10" : "bg-success/10"} trend={riskScore < 30 ? "up" : "down"} delay={4} />
+      </div>
+
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="visao-geral" className="text-xs">Visão Geral</TabsTrigger>
-          <TabsTrigger value="processos" className="text-xs">Processos</TabsTrigger>
-          <TabsTrigger value="operacional" className="text-xs">Operacional</TabsTrigger>
-          <TabsTrigger value="sla" className="text-xs">SLA & Provas</TabsTrigger>
-        </TabsList>
+        <div className="mb-5 overflow-x-auto scrollbar-hide">
+          <TabsList className="w-max">
+            <TabsTrigger value="visao-geral" className="text-xs">Visão Geral</TabsTrigger>
+            <TabsTrigger value="processos" className="text-xs">Processos</TabsTrigger>
+            <TabsTrigger value="operacional" className="text-xs">Operacional</TabsTrigger>
+            <TabsTrigger value="sla" className="text-xs">SLA & Provas</TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* VISÃO GERAL */}
         <TabsContent value="visao-geral">
-          {/* KPI Cards */}
-          <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <KPICard icon={<CheckCircle2 />} label="SLA Provas 72h" value={`${slaPercent}%`} sub={`${slaMet}/${totalRequests.length} cumpridos`} color="text-success" bg="bg-success/10" />
-            <KPICard icon={<AlertTriangle />} label="Alertas Críticos" value={String(criticalAlerts)} sub="não tratados" color="text-destructive" bg="bg-destructive/10" />
-            <KPICard icon={<Clock />} label="Tarefas Vencidas" value={String(overdueTasks)} sub="em atraso" color="text-warning" bg="bg-warning/10" />
-            <KPICard icon={<FileText />} label="Evidências" value={`${validatedEvidence}/${totalEvidence}`} sub="validadas" color="text-info" bg="bg-info/10" />
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            <ChartCard title="Saúde Operacional" icon={<Shield className="h-4 w-4 text-primary" />}>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <ChartCard title="Saúde Operacional" icon={<Shield className="h-4 w-4 text-primary" />} delay={0}>
               <ResponsiveContainer width="100%" height={280}>
                 <RadarChart data={radarData}>
-                  <PolarGrid stroke="hsl(220, 16%, 85%)" />
-                  <PolarAngleAxis dataKey="metric" tick={{ fontSize: 10 }} />
-                  <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 9 }} />
+                  <PolarGrid stroke="hsl(var(--border))" />
+                  <PolarAngleAxis dataKey="metric" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+                  <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                   <Radar name="%" dataKey="value" stroke="hsl(230, 65%, 48%)" fill="hsl(230, 65%, 48%)" fillOpacity={0.2} />
-                  <Tooltip />
+                  <RechartsTooltip />
                 </RadarChart>
               </ResponsiveContainer>
             </ChartCard>
 
-            <ChartCard title="Evolução Mensal" icon={<TrendingUp className="h-4 w-4 text-success" />}>
+            <ChartCard title="Evolução Mensal" icon={<TrendingUp className="h-4 w-4 text-success" />} delay={1}>
               <ResponsiveContainer width="100%" height={280}>
                 <AreaChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 16%, 90%)" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+                  <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+                  <RechartsTooltip contentStyle={{ borderRadius: 12, border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }} />
                   <Area type="monotone" dataKey="novos" stroke="hsl(230, 65%, 48%)" fill="hsl(230, 65%, 48%)" fillOpacity={0.15} name="Novos" />
                   <Area type="monotone" dataKey="encerrados" stroke="hsl(152, 60%, 40%)" fill="hsl(152, 60%, 40%)" fillOpacity={0.15} name="Encerrados" />
                   <Legend wrapperStyle={{ fontSize: "11px" }} />
                 </AreaChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard title="Processos por Status" icon={<BarChart3 className="h-4 w-4 text-primary" />} className="lg:col-span-1" delay={2}>
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={100} label={({ name, value }) => `${name}: ${value}`} labelLine={false}>
+                    {statusData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                  </Pie>
+                  <RechartsTooltip contentStyle={{ borderRadius: 12, border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }} />
+                  <Legend wrapperStyle={{ fontSize: "11px" }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard title="Tarefas por Responsável" icon={<Users className="h-4 w-4 text-primary" />} delay={3}>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={assigneeData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+                  <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+                  <RechartsTooltip contentStyle={{ borderRadius: 12, border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }} />
+                  <Bar dataKey="concluidas" fill="hsl(152, 60%, 40%)" name="Concluídas" stackId="a" />
+                  <Bar dataKey="pendentes" fill="hsl(38, 92%, 50%)" name="Pendentes" stackId="a" radius={[4, 4, 0, 0]} />
+                  <Legend wrapperStyle={{ fontSize: "11px" }} />
+                </BarChart>
               </ResponsiveContainer>
             </ChartCard>
           </div>
@@ -176,38 +251,38 @@ export default function Relatorios() {
 
         {/* PROCESSOS */}
         <TabsContent value="processos">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <ChartCard title="Processos por Status" icon={<BarChart3 className="h-4 w-4 text-primary" />}>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <ChartCard title="Processos por Status" icon={<BarChart3 className="h-4 w-4 text-primary" />} delay={0}>
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
-                  <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, value }) => `${name}: ${value}`} labelLine={false}>
+                  <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={100} label={({ name, value }) => `${name}: ${value}`} labelLine={false}>
                     {statusData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                   </Pie>
-                  <Tooltip />
+                  <RechartsTooltip contentStyle={{ borderRadius: 12, border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }} />
                   <Legend wrapperStyle={{ fontSize: "11px" }} />
                 </PieChart>
               </ResponsiveContainer>
             </ChartCard>
 
-            <ChartCard title="Volume por Tema" icon={<FileText className="h-4 w-4 text-info" />}>
+            <ChartCard title="Volume por Tema" icon={<FileText className="h-4 w-4 text-info" />} delay={1}>
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={themeData} layout="vertical" margin={{ left: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 16%, 90%)" />
-                  <XAxis type="number" tick={{ fontSize: 11 }} />
-                  <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="hsl(230, 65%, 48%)" radius={[0, 4, 4, 0]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis type="number" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+                  <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+                  <RechartsTooltip contentStyle={{ borderRadius: 12, border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }} />
+                  <Bar dataKey="value" fill="hsl(230, 65%, 48%)" radius={[0, 4, 4, 0]} name="Processos" />
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
 
-            <ChartCard title="Por Empresa / Filial" icon={<Building2 className="h-4 w-4 text-warning" />}>
+            <ChartCard title="Por Empresa / Filial" icon={<Building2 className="h-4 w-4 text-warning" />} delay={2}>
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={companyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 16%, 90%)" />
-                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+                  <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+                  <RechartsTooltip contentStyle={{ borderRadius: 12, border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }} />
                   <Bar dataKey="processos" fill="hsl(230, 65%, 48%)" name="Processos" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="tarefas" fill="hsl(38, 92%, 50%)" name="Tarefas" radius={[4, 4, 0, 0]} />
                   <Legend wrapperStyle={{ fontSize: "11px" }} />
@@ -215,8 +290,7 @@ export default function Relatorios() {
               </ResponsiveContainer>
             </ChartCard>
 
-            {/* Confidentiality breakdown */}
-            <ChartCard title="Sigilo dos Processos" icon={<Shield className="h-4 w-4 text-destructive" />}>
+            <ChartCard title="Sigilo dos Processos" icon={<Shield className="h-4 w-4 text-destructive" />} delay={3}>
               <div className="space-y-4 pt-4">
                 {(["normal", "restrito", "ultra_restrito"] as const).map((level) => {
                   const count = filteredCases.filter((c) => c.confidentiality === level).length;
@@ -225,12 +299,12 @@ export default function Relatorios() {
                   const colors = { normal: "bg-success", restrito: "bg-warning", ultra_restrito: "bg-destructive" };
                   return (
                     <div key={level}>
-                      <div className="mb-1 flex justify-between text-xs">
-                        <span className="font-medium">{labels[level]}</span>
-                        <span className="text-muted-foreground">{count} ({pct}%)</span>
+                      <div className="mb-1.5 flex justify-between text-xs">
+                        <span className="font-semibold">{labels[level]}</span>
+                        <span className="text-muted-foreground font-medium">{count} ({pct}%)</span>
                       </div>
-                      <div className="h-3 overflow-hidden rounded-full bg-muted">
-                        <div className={cn("h-full rounded-full transition-all", colors[level])} style={{ width: `${pct}%` }} />
+                      <div className="h-3 overflow-hidden rounded-full bg-muted/60">
+                        <div className={cn("h-full rounded-full transition-all duration-700 ease-out", colors[level])} style={{ width: `${pct}%` }} />
                       </div>
                     </div>
                   );
@@ -243,35 +317,37 @@ export default function Relatorios() {
         {/* OPERACIONAL */}
         <TabsContent value="operacional">
           <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <KPICard icon={<Users />} label="Responsáveis Ativos" value="5" sub="com alertas configurados" color="text-primary" bg="bg-primary/10" />
-            <KPICard icon={<CalendarDays />} label="Audiências Próx. 30d" value={String(mockDeadlines.filter((d) => d.status === "pendente").length)} sub="agendadas" color="text-warning" bg="bg-warning/10" />
-            <KPICard icon={<Shield />} label="Downloads c/ Marca" value={String(mockDownloadLogs.filter((d) => d.watermarked).length)} sub="com marca d'água" color="text-info" bg="bg-info/10" />
-            <KPICard icon={<TrendingUp />} label="Tempo Médio Resposta" value="4.2d" sub="citação → documentação" color="text-success" bg="bg-success/10" />
+            <KPICard icon={<Users />} label="Responsáveis Ativos" value="5" sub="com alertas configurados" color="text-primary" bg="bg-primary/10" delay={0} />
+            <KPICard icon={<CalendarDays />} label="Audiências Próx. 30d" value={String(mockDeadlines.filter((d) => d.status === "pendente").length)} sub="agendadas" color="text-warning" bg="bg-warning/10" delay={1} />
+            <KPICard icon={<Shield />} label="Downloads c/ Marca" value={String(mockDownloadLogs.filter((d) => d.watermarked).length)} sub="com marca d'água" color="text-info" bg="bg-info/10" delay={2} />
+            <KPICard icon={<TrendingUp />} label="Taxa Conclusão" value={`${taskCompletionRate}%`} sub={`${completedTasks}/${totalTasks} tarefas`} color="text-success" bg="bg-success/10" trend={taskCompletionRate >= 50 ? "up" : "down"} delay={3} />
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
-            <ChartCard title="Tarefas por Responsável" icon={<Users className="h-4 w-4 text-primary" />}>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <ChartCard title="Tarefas por Responsável" icon={<Users className="h-4 w-4 text-primary" />} delay={0}>
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={assigneeData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 16%, 90%)" />
-                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip />
-                  <Bar dataKey="concluidas" fill="hsl(152, 60%, 40%)" name="Concluídas" stackId="a" radius={[0, 0, 0, 0]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+                  <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+                  <RechartsTooltip contentStyle={{ borderRadius: 12, border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }} />
+                  <Bar dataKey="concluidas" fill="hsl(152, 60%, 40%)" name="Concluídas" stackId="a" />
                   <Bar dataKey="pendentes" fill="hsl(38, 92%, 50%)" name="Pendentes" stackId="a" radius={[4, 4, 0, 0]} />
                   <Legend wrapperStyle={{ fontSize: "11px" }} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
 
-            <ChartCard title="SLA Compliance Mensal" icon={<CheckCircle2 className="h-4 w-4 text-success" />}>
+            <ChartCard title="SLA Compliance Mensal" icon={<CheckCircle2 className="h-4 w-4 text-success" />} delay={1}>
               <ResponsiveContainer width="100%" height={280}>
                 <AreaChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 16%, 90%)" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} domain={[0, 100]} />
-                  <Tooltip formatter={(v: number) => `${v}%`} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+                  <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} domain={[0, 100]} />
+                  <RechartsTooltip formatter={(v: number) => `${v}%`} contentStyle={{ borderRadius: 12, border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }} />
                   <Area type="monotone" dataKey="sla" stroke="hsl(152, 60%, 40%)" fill="hsl(152, 60%, 40%)" fillOpacity={0.2} name="SLA %" />
+                  {/* Target line */}
+                  <Line type="monotone" dataKey={() => 80} stroke="hsl(var(--destructive))" strokeDasharray="5 5" name="Meta 80%" dot={false} />
                   <Legend wrapperStyle={{ fontSize: "11px" }} />
                 </AreaChart>
               </ResponsiveContainer>
@@ -282,14 +358,14 @@ export default function Relatorios() {
         {/* SLA & PROVAS */}
         <TabsContent value="sla">
           <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <KPICard icon={<CheckCircle2 />} label="SLA Cumprido" value={`${slaPercent}%`} sub={`${slaMet} de ${totalRequests.length}`} color="text-success" bg="bg-success/10" />
-            <KPICard icon={<AlertTriangle />} label="Atrasados" value={String(totalRequests.filter((r) => r.status === "atrasada").length)} sub="solicitações" color="text-destructive" bg="bg-destructive/10" />
-            <KPICard icon={<FileText />} label="Total Evidências" value={String(totalEvidence)} sub={`${validatedEvidence} validadas`} color="text-info" bg="bg-info/10" />
-            <KPICard icon={<Download />} label="Downloads" value={String(mockDownloadLogs.length)} sub={`${mockDownloadLogs.filter((d) => d.watermarked).length} c/ marca`} color="text-primary" bg="bg-primary/10" />
+            <KPICard icon={<CheckCircle2 />} label="SLA Cumprido" value={`${slaPercent}%`} sub={`${slaMet} de ${totalRequests.length}`} color="text-success" bg="bg-success/10" trend={slaPercent >= 80 ? "up" : "down"} delay={0} />
+            <KPICard icon={<AlertTriangle />} label="Atrasados" value={String(totalRequests.filter((r) => r.status === "atrasada").length)} sub="solicitações" color="text-destructive" bg="bg-destructive/10" delay={1} />
+            <KPICard icon={<FileText />} label="Total Evidências" value={String(totalEvidence)} sub={`${validatedEvidence} validadas`} color="text-info" bg="bg-info/10" delay={2} />
+            <KPICard icon={<Download />} label="Downloads" value={String(mockDownloadLogs.length)} sub={`${mockDownloadLogs.filter((d) => d.watermarked).length} c/ marca`} color="text-primary" bg="bg-primary/10" delay={3} />
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
-            <ChartCard title="Status das Solicitações" icon={<BarChart3 className="h-4 w-4 text-primary" />}>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <ChartCard title="Status das Solicitações" icon={<BarChart3 className="h-4 w-4 text-primary" />} delay={0}>
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
                   <Pie
@@ -299,7 +375,7 @@ export default function Relatorios() {
                       { name: "Atendida", value: totalRequests.filter((r) => r.status === "atendida").length },
                       { name: "Atrasada", value: totalRequests.filter((r) => r.status === "atrasada").length },
                     ].filter((d) => d.value > 0)}
-                    dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100}
+                    dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={100}
                     label={({ name, value }) => `${name}: ${value}`} labelLine={false}
                   >
                     <Cell fill="hsl(210, 80%, 52%)" />
@@ -307,13 +383,13 @@ export default function Relatorios() {
                     <Cell fill="hsl(152, 60%, 40%)" />
                     <Cell fill="hsl(0, 72%, 51%)" />
                   </Pie>
-                  <Tooltip />
+                  <RechartsTooltip contentStyle={{ borderRadius: 12, border: "1px solid hsl(var(--border))", background: "hsl(var(--card))" }} />
                   <Legend wrapperStyle={{ fontSize: "11px" }} />
                 </PieChart>
               </ResponsiveContainer>
             </ChartCard>
 
-            <ChartCard title="Evidências por Categoria" icon={<FileText className="h-4 w-4 text-info" />}>
+            <ChartCard title="Evidências por Categoria" icon={<FileText className="h-4 w-4 text-info" />} delay={1}>
               <div className="space-y-3 pt-2">
                 {Object.entries(
                   mockEvidenceItems.reduce((acc, i) => {
@@ -323,12 +399,12 @@ export default function Relatorios() {
                   }, {} as Record<string, number>)
                 ).sort((a, b) => b[1] - a[1]).map(([cat, count], i) => (
                   <div key={cat}>
-                    <div className="mb-0.5 flex justify-between text-xs">
-                      <span className="font-medium capitalize">{cat}</span>
-                      <span className="text-muted-foreground">{count}</span>
+                    <div className="mb-1 flex justify-between text-xs">
+                      <span className="font-semibold capitalize">{cat}</span>
+                      <span className="text-muted-foreground font-medium">{count}</span>
                     </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-muted">
-                      <div className="h-full rounded-full transition-all" style={{
+                    <div className="h-2.5 overflow-hidden rounded-full bg-muted/60">
+                      <div className="h-full rounded-full transition-all duration-700 ease-out" style={{
                         width: `${(count / mockEvidenceItems.length) * 100}%`,
                         backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
                       }} />
@@ -344,23 +420,53 @@ export default function Relatorios() {
   );
 }
 
-function KPICard({ icon, label, value, sub, color, bg }: { icon: React.ReactNode; label: string; value: string; sub: string; color: string; bg: string }) {
+function KPICard({ icon, label, value, sub, color, bg, trend, delay = 0 }: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  sub: string;
+  color: string;
+  bg: string;
+  trend?: "up" | "down" | "neutral";
+  delay?: number;
+}) {
   return (
-    <div className="rounded-xl border bg-card p-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <div className={cn("mb-2 flex h-9 w-9 items-center justify-center rounded-lg [&>svg]:h-5 [&>svg]:w-5", bg, color)}>{icon}</div>
-      <p className="text-2xl font-bold">{value}</p>
-      <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
+    <div
+      className="rounded-xl border bg-card p-4 shadow-soft hover:shadow-card transition-all duration-300 hover:-translate-y-0.5 animate-in fade-in slide-in-from-bottom-2 duration-500"
+      style={{ animationDelay: `${delay * 80}ms` }}
+      role="article"
+      aria-label={`${label}: ${value}`}
+    >
+      <div className="mb-2 flex items-center justify-between">
+        <div className={cn("flex h-9 w-9 items-center justify-center rounded-xl [&>svg]:h-4.5 [&>svg]:w-4.5", bg, color)}>{icon}</div>
+        {trend && (
+          <span className={cn("text-[10px] font-bold", trend === "up" ? "text-success" : trend === "down" ? "text-destructive" : "text-muted-foreground")}>
+            {trend === "up" ? "▲" : trend === "down" ? "▼" : "—"}
+          </span>
+        )}
+      </div>
+      <p className="text-2xl font-extrabold tracking-tight">{value}</p>
+      <p className="text-[11px] font-semibold text-muted-foreground">{label}</p>
       <p className="text-[10px] text-muted-foreground/70">{sub}</p>
     </div>
   );
 }
 
-function ChartCard({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+function ChartCard({ title, icon, children, className, delay = 0 }: {
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+  delay?: number;
+}) {
   return (
-    <div className="rounded-xl border bg-card p-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div
+      className={cn("rounded-xl border bg-card p-4 shadow-soft hover:shadow-card transition-all duration-300 animate-in fade-in slide-in-from-bottom-4 duration-500", className)}
+      style={{ animationDelay: `${delay * 100}ms` }}
+    >
       <div className="mb-3 flex items-center gap-2">
         {icon}
-        <h3 className="text-sm font-semibold">{title}</h3>
+        <h3 className="text-sm font-bold">{title}</h3>
       </div>
       {children}
     </div>
