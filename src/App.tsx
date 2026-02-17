@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { AlertsProvider } from "@/contexts/AlertsContext";
 import AppLayout from "@/components/layout/AppLayout";
 import Login from "@/pages/Login";
 import Index from "@/pages/Index";
@@ -36,6 +37,7 @@ function AuthenticatedApp() {
   }
 
   return (
+    <AlertsProvider>
     <Routes>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route
@@ -67,6 +69,7 @@ function AuthenticatedApp() {
         }
       />
     </Routes>
+    </AlertsProvider>
   );
 }
 
