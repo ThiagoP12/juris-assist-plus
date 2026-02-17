@@ -5,7 +5,7 @@ export type AppRole = "admin" | "responsavel_juridico_interno" | "dp" | "rh" | "
 
 export const roleLabels: Record<AppRole, string> = {
   admin: "Administrador",
-  responsavel_juridico_interno: "Resp. Jurídico Interno",
+  responsavel_juridico_interno: "Diretor",
   dp: "Departamento Pessoal",
   rh: "Recursos Humanos",
   vendas: "Vendas",
@@ -28,7 +28,6 @@ const mockUsers: MockUser[] = [
   { id: "u2", name: "Sandra", email: "sandra@revalle.com.br", role: "dp", company_id: "all", company_name: "Todas" },
   { id: "u3", name: "Samilly", email: "samilly@revalle.com.br", role: "rh", company_id: "c1", company_name: "Revalle Juazeiro" },
   { id: "u4", name: "Sullydaiane", email: "sullydaiane@advocacia.com.br", role: "advogado_externo", company_id: "c1", company_name: "Revalle Juazeiro" },
-  { id: "u5", name: "Sullydaiane", email: "sullydaiane@advocacia.com.br", role: "advogado_externo", company_id: "c2", company_name: "Revalle Bonfim" },
   { id: "u6", name: "David", email: "david@revalle.com.br", role: "vendas", company_id: "c3", company_name: "Revalle Petrolina" },
   { id: "u7", name: "Cintia", email: "cintia@revalle.com.br", role: "responsavel_juridico_interno", company_id: "all", company_name: "Todas" },
 ];
