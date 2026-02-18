@@ -1,10 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   Search, Plus, ChevronRight, Shield, Building2, CalendarDays, Clock,
   Scale, Eye, LayoutList, LayoutGrid, Columns3, Filter, User, Gavel,
   AlertTriangle, CheckCircle2, FileText, TrendingUp, DollarSign,
-  ArrowUpDown, X, SortAsc, SortDesc, Download,
+  ArrowUpDown, X, SortAsc, SortDesc, Download, ChevronLeft,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -292,6 +292,11 @@ export default function Processos() {
   const [showFilters, setShowFilters] = useState(false);
   const [sortField, setSortField] = useState<SortField>("filed_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  // Reset to page 1 whenever filters/sort change
+  useEffect(() => { setPage(1); }, [search, companyFilter, statusTab, responsibleFilter, themeFilter, sortField, sortDir]);
 
   const responsibles = useMemo(() => [...new Set(cases.map((c) => c.responsible))].sort(), [cases]);
   const themes = useMemo(() => [...new Set(cases.map((c) => c.theme))].sort(), [cases]);
@@ -337,7 +342,15 @@ export default function Processos() {
     return result;
   }, [cases, search, companyFilter, statusTab, responsibleFilter, themeFilter, sortField, sortDir]);
 
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const paginated = useMemo(
+    () => filtered.slice((page - 1) * pageSize, page * pageSize),
+    [filtered, page, pageSize]
+  );
+
   // Stats
+
   const stats = useMemo(() => {
     const urgentDeadlines = cases.filter((c) => {
       if (!c.next_deadline) return false;
@@ -635,7 +648,7 @@ export default function Processos() {
       <TooltipProvider>
         {viewMode === "list" && (
           <div className="space-y-2">
-            {filtered.map((c, index) => (
+            {paginated.map((c, index) => (
               <ProcessCardList key={c.id} c={c} index={index} />
             ))}
           </div>
@@ -643,7 +656,7 @@ export default function Processos() {
 
         {viewMode === "grid" && (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((c, index) => (
+            {paginated.map((c, index) => (
               <ProcessCardGrid key={c.id} c={c} index={index} />
             ))}
           </div>
@@ -671,7 +684,105 @@ export default function Processos() {
             )}
           </div>
         )}
+
+        {/* Pagination controls — hidden on kanban */}
+        {viewMode !== "kanban" && filtered.length > 0 && (
+          <div className="mt-5 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+            {/* Page size selector */}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Exibir</span>
+              <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+                <SelectTrigger className="h-8 w-[70px] rounded-lg text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  {[10, 20, 50, 100].map((n) => (
+                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span>por página · <strong className="text-foreground">{filtered.length}</strong> total</span>
+            </div>
+
+            {/* Page navigation */}
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-lg"
+                onClick={() => setPage(1)}
+                disabled={page === 1}
+                aria-label="Primeira página"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-lg"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                aria-label="Página anterior"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </Button>
+
+              {/* Page number pills */}
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                .reduce<(number | "…")[]>((acc, p, i, arr) => {
+                  if (i > 0 && (p as number) - (arr[i - 1] as number) > 1) acc.push("…");
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, i) =>
+                  p === "…" ? (
+                    <span key={`ellipsis-${i}`} className="px-1 text-xs text-muted-foreground">…</span>
+                  ) : (
+                    <Button
+                      key={p}
+                      variant={page === p ? "default" : "outline"}
+                      size="icon"
+                      className={cn("h-8 w-8 rounded-lg text-xs", page === p && "shadow-glow-primary/20")}
+                      onClick={() => setPage(p as number)}
+                      aria-label={`Página ${p}`}
+                      aria-current={page === p ? "page" : undefined}
+                    >
+                      {p}
+                    </Button>
+                  )
+                )}
+
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-lg"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                aria-label="Próxima página"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-lg"
+                onClick={() => setPage(totalPages)}
+                disabled={page === totalPages}
+                aria-label="Última página"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+
+            {/* Range info */}
+            <p className="text-xs text-muted-foreground hidden sm:block">
+              {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filtered.length)} de {filtered.length}
+            </p>
+          </div>
+        )}
       </TooltipProvider>
     </div>
   );
 }
+
