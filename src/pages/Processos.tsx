@@ -4,7 +4,7 @@ import {
   Search, Plus, ChevronRight, Shield, Building2, CalendarDays, Clock,
   Scale, Eye, LayoutList, LayoutGrid, Columns3, Filter, User, Gavel,
   AlertTriangle, CheckCircle2, FileText, TrendingUp, DollarSign,
-  ArrowUpDown, X, SortAsc, SortDesc,
+  ArrowUpDown, X, SortAsc, SortDesc, Download,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -382,6 +382,50 @@ export default function Processos() {
     setThemeFilter("all");
   };
 
+  const exportCSV = () => {
+    const headers = [
+      "Nº do Processo",
+      "Reclamante",
+      "Empresa",
+      "Status",
+      "Tema",
+      "Valor da Causa (R$)",
+      "Responsável",
+      "Data de Ajuizamento",
+      "Próxima Audiência",
+      "Próximo Prazo",
+      "Confidencialidade",
+    ];
+
+    const rows = filtered.map((c) => [
+      c.case_number,
+      c.employee,
+      c.company,
+      statusLabels[c.status],
+      c.theme,
+      c.amount != null ? c.amount.toFixed(2).replace(".", ",") : "",
+      c.responsible,
+      c.filed_at ? new Date(c.filed_at).toLocaleDateString("pt-BR") : "",
+      c.next_hearing ? new Date(c.next_hearing).toLocaleDateString("pt-BR") : "",
+      c.next_deadline ? new Date(c.next_deadline).toLocaleDateString("pt-BR") : "",
+      c.confidentiality === "ultra_restrito" ? "Ultra Restrito" : c.confidentiality === "restrito" ? "Restrito" : "Normal",
+    ]);
+
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(";"))
+      .join("\n");
+
+    const BOM = "\uFEFF";
+    const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const date = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `processos_${date}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Header */}
@@ -425,6 +469,23 @@ export default function Processos() {
               </Tooltip>
             ))}
           </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 h-9 rounded-xl text-xs"
+                onClick={exportCSV}
+                disabled={filtered.length === 0}
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Exportar CSV</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="text-xs">Exportar {filtered.length} processo(s) para CSV</p>
+            </TooltipContent>
+          </Tooltip>
           {!isExternal && (
             <Button className="gap-2 rounded-xl shadow-glow-primary transition-all hover:shadow-lg hover:scale-[1.01] active:scale-[0.99]" size="sm" asChild style={{ background: "var(--gradient-primary)" }}>
               <Link to="/processos/novo">
