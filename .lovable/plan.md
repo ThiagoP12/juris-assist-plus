@@ -1,54 +1,85 @@
 
-# MVP 1.0 – "Agenda + Tarefas + Alertas"
+## Objetivo
 
-## Status: EM PROGRESSO
+Transformar o botão **"+ Criar"** da sidebar em um fluxo completo inline: ao clicar no dropdown e escolher "Criar Processo" ou "Criar Tarefa", um **Sheet (painel lateral deslizante)** abre com o formulário completo, sem sair da página atual.
 
-## ✅ Fase 1 – Fluxo Básico (CONCLUÍDA)
+## Por que Sheet e não navegação?
 
-### Botão "Criar" Global
-- Dropdown no sidebar com "Criar Processo" e "Criar Tarefa"
+O comportamento descrito ("ao clicar aparece os campos") é um padrão de **painel lateral deslizante** (Sheet/Drawer), que mantém o contexto visual da página atual. Isso é mais ergonômico do que redirecionar o usuário. O componente `Sheet` já está disponível na biblioteca de UI (`src/components/ui/sheet.tsx`).
 
-### Formulário de Processo (NovoProcesso.tsx)
-- Campos: Nº do Processo, Nome do Colaborador, Empresa/Filial, Tema (texto livre), Status (Em andamento | Encerrado), Responsável (executor), Gestor responsável
+## Arquitetura das Mudanças
 
-### Formulário de Tarefa (NovaTarefa.tsx)
-- Busca de processo/caso com popover
-- Seleção múltipla de responsáveis com chips
-- Campo gestor responsável separado
-- Data com calendar picker
-- Opções: Mostrar na agenda / Dia inteiro
-- Notificação in-app simulada ao criar
+Apenas **um arquivo** precisa ser modificado:
 
-### Lista de Processos
-- Processos encerrados ocultos por padrão (botão "Mostrar encerrados")
-- Default tab: "Em andamento"
+- `src/components/layout/AppLayout.tsx`
 
-## ✅ Fase 2 – Agenda + Alertas (CONCLUÍDA)
+Os formulários de `NovoProcesso.tsx` e `NovaTarefa.tsx` permanecem como páginas independentes (para quem acessa via URL direta), mas o conteúdo dos formulários será **replicado inline** dentro do Sheet — ou melhor, os próprios componentes de página serão importados e renderizados dentro do Sheet.
 
-### Agenda (Agenda.tsx)
-- Toggle "Minhas atribuições / Todas" sempre visível no header
-- Selector de ano (dropdown) no header
-- Não-admin começa em "Minhas atribuições"
-- Views: Mês, Semana, Dia
-- Modal de evento ao clicar com link para processo
+### Estratégia de Implementação
 
-### Central de Alertas (Alertas.tsx)
-- Abas: Todos / Prazos / Audiências / Minhas Tarefas
-- Regras MVP: Audiências 30/7/1 dia, Prazos 30/7/1 dia, Tarefas 1 dia antes e no vencimento
-- Status: Não tratada / Tratada (state local)
-- Link para processo relacionado
+Para evitar duplicar código de formulário, a abordagem mais limpa é:
 
-## 🔲 Fase 3 – Gestor, Encerrados e Permissões
+1. Extrair o conteúdo de `NovoProcesso.tsx` e `NovaTarefa.tsx` para componentes reutilizáveis (`NovoProcessoForm` e `NovaTarefaForm`).
+2. Usar esses componentes tanto nas páginas (`/processos/novo`, `/tarefas/nova`) quanto dentro do Sheet no `AppLayout`.
 
-- Campo "Gestor responsável" já implementado em Processos e Tarefas (formulários)
-- Notificação in-app para gestor ao criar tarefa: TODO (precisa de backend real)
-- Processos encerrados: filtro "Mostrar encerrados" implementado
-- Modo leitura para encerrados: TODO
-- Teste "caso David": permissões mockadas na agenda via assignmentFilter
+Alternativamente (mais simples, sem refatoração das páginas existentes):
 
-## Próximas prioridades
+- Criar os formulários **diretamente no Sheet** em `AppLayout.tsx`, usando estado local para controlar qual formulário exibir.
 
-1. Ativar Lovable Cloud para persistência real
-2. Notificações in-app reais para responsável e gestor
-3. Modo leitura para processo encerrado (bloquear criação de tarefas)
-4. Edge Function de alertas automáticos
+Vou usar a **abordagem alternativa mais simples**, criando formulários enxutos dentro do Sheet — com os mesmos campos essenciais — e chamando `navigate()` ou `toast` ao submeter, fechando o Sheet após o sucesso.
+
+## Fluxo de Interação
+
+```text
+[+ Criar v] clicado
+      |
+      v
+Dropdown aparece:
+  ┌─────────────────┐
+  │ 📄 Criar Processo│
+  │ ☑ Criar Tarefa  │
+  └─────────────────┘
+      |
+      v (usuário seleciona)
+Sheet desliza da direita
+      |
+      v
+Formulário preenchido → "Criar" → Sheet fecha + toast de sucesso
+```
+
+## Mudanças Técnicas Detalhadas
+
+### `src/components/layout/AppLayout.tsx`
+
+1. **Importar** `Sheet`, `SheetContent`, `SheetHeader`, `SheetTitle` de `@/components/ui/sheet`.
+2. **Importar** `useNavigate` de `react-router-dom`.
+3. **Estado no `CreateButton`**:
+   - `sheetOpen: boolean` — controla abertura do Sheet.
+   - `sheetType: "processo" | "tarefa" | null` — qual formulário exibir.
+4. **Dropdown modificado**: ao clicar em "Criar Processo" ou "Criar Tarefa", seta o tipo e abre o Sheet (não navega mais).
+5. **Sheet renderizado abaixo do dropdown** com:
+   - `SheetHeader` com título dinâmico ("Novo Processo" / "Nova Tarefa").
+   - Formulário inline com os campos essenciais de cada tipo.
+   - Botões "Criar" e "Cancelar" (fecha o Sheet).
+6. Os formulários **não precisam de `useNavigate`** — ao submeter com sucesso, o Sheet fecha e um `toast` é exibido. A navegação `/processos/novo` e `/tarefas/nova` continua existindo como fallback para quem acessa via URL direta.
+
+### Formulário de Processo (dentro do Sheet):
+- Número do Processo (obrigatório)
+- Nome do Colaborador (obrigatório)
+- Empresa/Filial (Select)
+- Tema (Textarea)
+- Status (Select)
+- Responsável (Select)
+
+### Formulário de Tarefa (dentro do Sheet):
+- Processo vinculado (busca com Popover)
+- Responsáveis (busca multi-select)
+- Descrição (obrigatório)
+- Data + Hora
+- Prioridade (Select)
+
+## O que NÃO muda
+
+- As páginas `/processos/novo` e `/tarefas/nova` continuam funcionando normalmente via URL.
+- Nenhuma lógica de negócio, contextos, ou outros componentes são alterados.
+- O visual do botão "Criar" na sidebar permanece idêntico.
