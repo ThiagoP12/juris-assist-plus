@@ -4,7 +4,7 @@ import {
   Search, Plus, ChevronRight, Shield, Building2, CalendarDays, Clock,
   Scale, Eye, LayoutList, LayoutGrid, Columns3, Filter, User, Gavel,
   AlertTriangle, CheckCircle2, FileText, TrendingUp, DollarSign,
-  ArrowUpDown, X, SortAsc, SortDesc, Download, ChevronLeft,
+  ArrowUpDown, X, SortAsc, SortDesc, Download, ChevronLeft, RefreshCw,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -113,6 +113,11 @@ function ProcessCardGrid({ c, index }: { c: Case; index: number }) {
               {formatCurrency(c.amount)}
             </span>
           )}
+          {c.reopened && (
+            <Badge variant="outline" className="text-[9px] font-semibold bg-warning/10 text-warning border-warning/40 gap-1">
+              <RefreshCw className="h-2.5 w-2.5" /> Reaberto
+            </Badge>
+          )}
         </div>
 
         <div className="mt-auto pt-2 border-t border-border/50 flex items-center justify-between gap-2">
@@ -190,6 +195,11 @@ function ProcessCardList({ c, index }: { c: Case; index: number }) {
             <span className="text-[11px] font-semibold text-foreground">
               {formatCurrency(c.amount)}
             </span>
+          )}
+          {c.reopened && (
+            <Badge variant="outline" className="text-[9px] font-semibold bg-warning/10 text-warning border-warning/40 gap-1">
+              <RefreshCw className="h-2.5 w-2.5" /> Reaberto
+            </Badge>
           )}
           {isUrgent && (
             <Badge variant="outline" className="text-[9px] font-semibold bg-destructive/10 text-destructive border-destructive/30 gap-1">
