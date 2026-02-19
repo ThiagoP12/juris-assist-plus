@@ -1,59 +1,62 @@
 
-## Objetivo
+## Limpar os Dados Mock do Dashboard
 
-Substituir o botão "Mostrar/Ocultar encerrados" por uma **aba "Encerrados"** dedicada na página de Processos, integrada ao sistema de tabs de status já existente.
+### Contexto
 
-## Análise do Estado Atual
+Os contadores no dashboard (processos, tarefas, prazos, alertas) vêm exclusivamente do arquivo `src/data/mock.ts`, que contém dados fictícios escritos diretamente no código. Eles não existem no Supabase.
 
-Atualmente, a página `Processos.tsx` tem:
-- **Tabs de status**: "Todos", "Novo", "Em Andamento", "Audiência Marcada", "Sentença", "Recurso", "Encerrado" — geradas dinamicamente a partir de `statusLabels`.
-- **Botão separado** "Mostrar/Ocultar encerrados" com estado `showEncerrados` que controla a visibilidade.
-- **Lógica de filtro**: processos encerrados são ocultos por padrão (`if (!showEncerrados && c.status === "encerrado" && statusTab !== "encerrado") return false`).
+---
 
-O problema é que a aba "Encerrado" já existe visualmente nas tabs (linha 549-556), mas os dados mock atuais não têm processos com `status: 'encerrado'`, então a aba não aparece (filtra por `statusCounts[k] > 0`). Além disso, o botão "Mostrar/Ocultar encerrados" está redundante com a aba.
+### Duas Opções Disponíveis
 
-## Mudanças Necessárias
+**Opção A — Zerar os arrays (dashboard em branco)**
+Esvaziar os arrays `mockCases`, `mockTasks`, `mockAlerts` e `mockDeadlines` no arquivo `src/data/mock.ts`, deixando o dashboard zerado e pronto para receber dados reais do Supabase no futuro.
 
-### 1. `src/data/mock.ts` — Adicionar processos encerrados
+**Opção B — Remover apenas os itens que geram os contadores (recomendada)**
+Ajustar os dados mock para que reflitam um estado "limpo":
+- Marcar todos os casos como `encerrado` (zerando "processos ativos")
+- Marcar todas as tarefas como `concluida` (zerando "tarefas pendentes")
+- Marcar todos os prazos com `status: 'cumprido'` (zerando "prazos urgentes")
+- Marcar todos os alertas com `treated: true` (zerando "alertas não tratados")
 
-Adicionar 2–3 processos com `status: 'encerrado'` ao `mockCases` para que a aba seja populada e o usuário possa ver o comportamento real.
+---
 
-### 2. `src/pages/Processos.tsx` — Refatorar UI
+### O Que Será Alterado
 
-**Remover:**
-- Estado `showEncerrados` e seu `useState`.
-- Botão "Mostrar/Ocultar encerrados" do header.
-- A condição `if (!showEncerrados && c.status === "encerrado" && statusTab !== "encerrado") return false` do filtro.
-- Chamada `setShowEncerrados(false)` no `clearAll`.
+**Arquivo:** `src/data/mock.ts`
 
-**Ajustar:**
-- A lógica de filtro já garante que a aba "encerrado" funciona — ao clicar nela, `statusTab === "encerrado"` e apenas processos encerrados são exibidos.
-- A condição `statusCounts[k] > 0` na renderização das tabs continuará funcionando — a aba "Encerrado" só aparece se houver processos encerrados.
-- Garantir que a aba "Encerrado" tenha visual diferenciado (tom acinzentado/neutro) para sinalizar que são processos arquivados — usando a cor já definida em `statusColors.encerrado`.
-
-**Comportamento resultante:**
-- Aba "Encerrado (N)" aparece na barra de tabs com badge de contagem.
-- Ao selecionar, exibe apenas os processos encerrados com todos os filtros/ordenação normais.
-- Nos modos "Todos" e demais abas, processos encerrados NÃO aparecem (comportamento atual mantido — encerrados são ocultados das outras abas).
-- No Kanban, a coluna "Encerrado" já existia e continua funcionando.
-
-## Arquivos a Modificar
-
-| Arquivo | O que muda |
-|---|---|
-| `src/data/mock.ts` | Adicionar 2 processos com `status: 'encerrado'` |
-| `src/pages/Processos.tsx` | Remover botão/estado `showEncerrados`, ajustar lógica de filtro, garantir que a aba funcione corretamente |
-
-## Comportamento Final
+Serão alterados os campos de status nos seguintes arrays:
 
 ```text
-[Tabs de status]
-Todos (5) | Novo (1) | Em Andamento (1) | Audiência Marcada (1) | Sentença (1) | Recurso (1) | Encerrado (2)
-                                                                                                    ↑
-                                                                                          Nova aba dedicada
+mockCases     → status: 'encerrado'  (todos os registros)
+mockTasks     → status: 'concluida'  (todos os registros)
+mockDeadlines → status: 'cumprido'   (todos os registros)
+mockAlerts    → treated: true        (todos os registros)
 ```
 
-- Clicar em "Encerrado" → lista/grid/kanban mostra apenas processos encerrados.
-- Os cards de encerrados exibem o badge cinza já estilizado com `statusColors.encerrado`.
-- Um banner informativo sutil pode aparecer no topo da lista de encerrados: "Processos encerrados estão em modo leitura."
-- Nas demais abas, processos encerrados permanecem ocultos (sem poluir a visão ativa).
+---
+
+### Resultado Esperado no Dashboard
+
+| Indicador | Antes | Depois |
+|---|---|---|
+| Processos Ativos | 5 | 0 |
+| Tarefas Pendentes | 7 | 0 |
+| Prazos Urgentes | 1 | 0 |
+| Alertas Não Tratados | 4 | 0 |
+
+O banner de "próxima audiência" também desaparecerá, pois depende de audiências com status `agendada`.
+
+---
+
+### Observação Importante
+
+Os alertas automáticos que aparecem depois de alguns segundos (simulados no `AlertsContext`) continuarão aparecendo temporariamente, pois são gerados por timers no código. Posso remover esses timers também se desejar.
+
+---
+
+### Impacto
+
+- Sem risco de perda de dados reais (tudo é mock)
+- Nenhuma alteração no banco Supabase
+- Reversível a qualquer momento
