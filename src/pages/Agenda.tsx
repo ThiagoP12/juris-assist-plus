@@ -525,58 +525,114 @@ function YearView({ selectedDate, onMonthClick, typeFilter, assignmentFilter, co
   typeFilter: EventFilterType; assignmentFilter: AssignmentFilter; companyFilter: string; currentUser?: string;
 }) {
   const year = selectedDate.getFullYear();
+
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
       {MONTHS.map((monthName, monthIdx) => {
         const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+        const firstDayOfWeek = new Date(year, monthIdx, 1).getDay();
+
+        // Build event map: day -> types
+        const eventMap: Record<number, Set<string>> = {};
         let audiencias = 0, prazos = 0, tarefas = 0;
         for (let d = 1; d <= daysInMonth; d++) {
           const date = new Date(year, monthIdx, d);
-          getEventsForDate(date, typeFilter, assignmentFilter, companyFilter, currentUser).forEach((e) => {
-            if (e.type === "audiencia") audiencias++;
-            else if (e.type === "prazo") prazos++;
-            else tarefas++;
-          });
+          const evts = getEventsForDate(date, typeFilter, assignmentFilter, companyFilter, currentUser);
+          if (evts.length > 0) {
+            eventMap[d] = new Set(evts.map((e) => e.type));
+            evts.forEach((e) => {
+              if (e.type === "audiencia") audiencias++;
+              else if (e.type === "prazo") prazos++;
+              else tarefas++;
+            });
+          }
         }
         const total = audiencias + prazos + tarefas;
         const isCurrentMonth = monthIdx === TODAY.getMonth() && year === TODAY.getFullYear();
-        const isSelected = monthIdx === selectedDate.getMonth() && year === selectedDate.getFullYear();
+        const todayDay = isCurrentMonth ? TODAY.getDate() : -1;
+
+        // Grid cells: blank prefix + days
+        const cells: (number | null)[] = Array(firstDayOfWeek).fill(null);
+        for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+        while (cells.length % 7 !== 0) cells.push(null);
 
         return (
           <button
             key={monthIdx}
             onClick={() => onMonthClick(new Date(year, monthIdx, 1))}
             className={cn(
-              "rounded-xl border bg-card p-4 text-left transition-all hover:shadow-card hover:-translate-y-0.5",
-              isCurrentMonth && "ring-2 ring-primary/50",
-              isSelected && !isCurrentMonth && "bg-accent/10",
+              "rounded-2xl border bg-card p-4 text-left transition-all hover:shadow-card hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              isCurrentMonth && "ring-2 ring-primary/40 bg-primary/[0.02]",
             )}
           >
-            <p className={cn(
-              "text-sm font-bold mb-2",
-              isCurrentMonth && "text-primary",
-            )}>{monthName}</p>
-            {total === 0 ? (
-              <p className="text-[11px] text-muted-foreground/50">Sem eventos</p>
-            ) : (
-              <div className="space-y-1">
-                {audiencias > 0 && (
-                  <div className="flex items-center gap-1.5">
-                    <Gavel className="h-3 w-3 text-primary" />
-                    <span className="text-[11px] font-medium text-primary">{audiencias} audiência{audiencias > 1 ? "s" : ""}</span>
+            {/* Month header */}
+            <div className="flex items-center justify-between mb-3">
+              <span className={cn(
+                "text-sm font-bold",
+                isCurrentMonth ? "text-primary" : "text-foreground",
+              )}>{monthName}</span>
+              {total > 0 && (
+                <span className="text-[10px] font-semibold text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">
+                  {total}
+                </span>
+              )}
+            </div>
+
+            {/* Mini calendar grid */}
+            <div className="grid grid-cols-7 gap-px mb-3">
+              {["D","S","T","Q","Q","S","S"].map((d, i) => (
+                <span key={i} className="text-center text-[8px] font-semibold text-muted-foreground/60 pb-0.5">{d}</span>
+              ))}
+              {cells.map((day, i) => {
+                if (!day) return <span key={i} />;
+                const types = eventMap[day];
+                const isToday = day === todayDay;
+                const hasAudiencia = types?.has("audiencia");
+                const hasPrazo = types?.has("prazo");
+                const hasTarefa = types?.has("tarefa");
+                const dotColor = hasAudiencia ? "bg-primary" : hasPrazo ? "bg-warning" : "bg-success";
+
+                return (
+                  <div key={i} className="flex flex-col items-center gap-px">
+                    <span className={cn(
+                      "text-[9px] leading-none w-5 h-5 flex items-center justify-center rounded-full font-medium",
+                      isToday && "bg-primary text-primary-foreground font-bold",
+                      !isToday && types && "text-foreground font-semibold",
+                      !isToday && !types && "text-muted-foreground/50",
+                    )}>
+                      {day}
+                    </span>
+                    {types ? (
+                      <div className="flex gap-px justify-center">
+                        {hasAudiencia && <span className="w-1 h-1 rounded-full bg-primary" />}
+                        {hasPrazo && <span className="w-1 h-1 rounded-full bg-warning" />}
+                        {hasTarefa && <span className="w-1 h-1 rounded-full bg-success" />}
+                      </div>
+                    ) : <span className="h-1" />}
                   </div>
+                );
+              })}
+            </div>
+
+            {/* Event summary */}
+            {total === 0 ? (
+              <p className="text-[10px] text-muted-foreground/40 text-center">Sem eventos</p>
+            ) : (
+              <div className="flex items-center gap-2 flex-wrap">
+                {audiencias > 0 && (
+                  <span className="flex items-center gap-1 text-[10px] font-semibold text-primary bg-primary/10 rounded-full px-1.5 py-0.5">
+                    <Gavel className="h-2.5 w-2.5" />{audiencias}
+                  </span>
                 )}
                 {prazos > 0 && (
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="h-3 w-3 text-warning" />
-                    <span className="text-[11px] font-medium text-warning">{prazos} prazo{prazos > 1 ? "s" : ""}</span>
-                  </div>
+                  <span className="flex items-center gap-1 text-[10px] font-semibold text-warning bg-warning/10 rounded-full px-1.5 py-0.5">
+                    <Clock className="h-2.5 w-2.5" />{prazos}
+                  </span>
                 )}
                 {tarefas > 0 && (
-                  <div className="flex items-center gap-1.5">
-                    <ListTodo className="h-3 w-3 text-success" />
-                    <span className="text-[11px] font-medium text-success">{tarefas} tarefa{tarefas > 1 ? "s" : ""}</span>
-                  </div>
+                  <span className="flex items-center gap-1 text-[10px] font-semibold text-success bg-success/10 rounded-full px-1.5 py-0.5">
+                    <ListTodo className="h-2.5 w-2.5" />{tarefas}
+                  </span>
                 )}
               </div>
             )}
