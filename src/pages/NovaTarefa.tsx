@@ -36,7 +36,7 @@ export default function NovaTarefa() {
   const [userPopoverOpen, setUserPopoverOpen] = useState(false);
 
   // Gestor
-  const [manager, setManager] = useState("");
+  const [manager, setManager] = useState("nenhum");
 
   // Tarefa
   const [description, setDescription] = useState("");
@@ -94,7 +94,7 @@ export default function NovaTarefa() {
     const responsavelNames = selectedUsers.join(", ");
     toast({
       title: "✅ Tarefa criada!",
-      description: `Notificação enviada para ${responsavelNames}${manager ? ` e gestor ${manager}` : ""}.`,
+      description: `Notificação enviada para ${responsavelNames}${manager && manager !== "nenhum" ? ` e gestor ${manager}` : ""}.`,
     });
     navigate("/tarefas");
   };
@@ -257,7 +257,7 @@ export default function NovaTarefa() {
               <SelectValue placeholder="Selecione o gestor (opcional)" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Nenhum</SelectItem>
+              <SelectItem value="nenhum">Nenhum</SelectItem>
               {ALL_USERS.map((u) => (
                 <SelectItem key={u} value={u}>{u}</SelectItem>
               ))}
@@ -359,7 +359,7 @@ export default function NovaTarefa() {
           <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs text-primary">
             <p className="font-semibold mb-0.5">📬 Notificações in-app serão enviadas para:</p>
             <p className="text-primary/80">
-              {selectedUsers.join(", ")}{manager ? ` e gestor ${manager}` : ""}
+              {selectedUsers.join(", ")}{manager && manager !== "nenhum" ? ` e gestor ${manager}` : ""}
             </p>
           </div>
         )}
