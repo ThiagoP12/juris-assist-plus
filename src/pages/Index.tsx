@@ -2,6 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   Scale, ClipboardList, CalendarDays, Clock, AlertTriangle,
   ChevronRight, Shield, TrendingUp, Users, Bell, Sparkles,
+  ArrowUpRight, ArrowDownRight, Minus,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,11 +38,21 @@ export default function Dashboard() {
   const totalCases = cases.length;
   const activeCases = cases.filter((c) => c.status !== "encerrado").length;
   const pendingTasks = tasks.filter((t) => t.status !== "concluida").length;
+  const overdueTasks = tasks.filter((t) => {
+    if (t.status === "concluida") return false;
+    return new Date(t.due_at) < new Date();
+  }).length;
   const urgentDeadlines = deadlines.filter((d) => {
     if (d.status !== "pendente") return false;
     const days = Math.ceil((new Date(d.due_at).getTime() - Date.now()) / 86400000);
     return days <= 7;
   });
+  const nextHearing = hearings
+    .filter((h) => h.status === "agendada" && new Date(`${h.date}T${h.time}`) > new Date())
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0];
+  const daysToNextHearing = nextHearing
+    ? Math.ceil((new Date(`${nextHearing.date}T${nextHearing.time}`).getTime() - Date.now()) / 86400000)
+    : null;
   const untreatedAlerts = alerts.filter((a) => !a.treated);
   const upcomingHearings = hearings
     .filter((h) => h.status === "agendada")
@@ -62,6 +73,25 @@ export default function Dashboard() {
         <p className="mt-1 text-sm text-muted-foreground font-medium">Visão geral do sistema jurídico trabalhista</p>
       </div>
 
+      {/* Next hearing banner */}
+      {nextHearing && daysToNextHearing !== null && daysToNextHearing <= 7 && (
+        <Link
+          to={`/processos/${nextHearing.case_id}`}
+          className="mb-6 flex items-center gap-3 rounded-xl border border-warning/30 bg-warning/5 px-4 py-3 animate-in fade-in slide-in-from-top-2 duration-500 hover:bg-warning/10 transition-colors"
+        >
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-warning/15">
+            <Sparkles className="h-4 w-4 text-warning" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-warning">
+              {daysToNextHearing === 0 ? "Audiência hoje!" : daysToNextHearing === 1 ? "Audiência amanhã!" : `Próxima audiência em ${daysToNextHearing} dias`}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">{nextHearing.type} · {nextHearing.employee} · {nextHearing.time}</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-warning/60 shrink-0" />
+        </Link>
+      )}
+
       {/* Metric Cards */}
       <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:gap-4">
         <MetricCard
@@ -71,6 +101,7 @@ export default function Dashboard() {
           total={totalCases}
           gradient="var(--gradient-primary)"
           delay={0}
+          trend={{ value: activeCases, total: totalCases, label: "do total" }}
           onClick={() => navigate("/processos")}
         />
         <MetricCard
@@ -80,6 +111,7 @@ export default function Dashboard() {
           total={tasks.length}
           gradient="var(--gradient-warm)"
           delay={1}
+          trend={{ value: overdueTasks, label: "atrasadas", direction: overdueTasks > 0 ? "up" : "neutral" }}
           onClick={() => navigate("/tarefas")}
         />
         <MetricCard
@@ -88,14 +120,16 @@ export default function Dashboard() {
           value={urgentDeadlines.length}
           gradient="var(--gradient-danger)"
           delay={2}
+          trend={{ value: urgentDeadlines.length, label: "≤7 dias", direction: urgentDeadlines.length > 2 ? "up" : "neutral" }}
           onClick={() => navigate("/agenda")}
         />
         <MetricCard
           icon={<Bell className="h-5 w-5" />}
-          label="Alertas Ativos"
+          label="Alertas Não Tratados"
           value={untreatedAlerts.length}
           gradient="var(--gradient-warm)"
           delay={3}
+          trend={{ value: untreatedAlerts.length, label: "não tratados", direction: untreatedAlerts.length > 0 ? "up" : "neutral" }}
           onClick={() => navigate("/alertas")}
         />
       </div>
@@ -238,7 +272,7 @@ function SectionHeader({ icon, title, linkTo, linkLabel }: { icon: React.ReactNo
 }
 
 function MetricCard({
-  icon, label, value, total, gradient, delay, onClick,
+  icon, label, value, total, gradient, delay, onClick, trend,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -247,21 +281,35 @@ function MetricCard({
   gradient: string;
   delay: number;
   onClick?: () => void;
+  trend?: { value: number; total?: number; label: string; direction?: "up" | "down" | "neutral" };
 }) {
+  const dir = trend?.direction ?? "neutral";
   return (
     <div
       className="rounded-xl border bg-card p-4 sm:p-5 shadow-soft hover:shadow-card transition-all duration-300 hover:-translate-y-0.5 animate-in fade-in slide-in-from-bottom-2 duration-500 cursor-pointer"
       style={{ animationDelay: `${delay * 80}ms` }}
       onClick={onClick}
     >
-      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl text-primary-foreground shadow-sm" style={{ background: gradient }}>
-        {icon}
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl text-primary-foreground shadow-sm" style={{ background: gradient }}>
+          {icon}
+        </div>
+        {trend && (
+          <div className={cn(
+            "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold",
+            dir === "up" ? "bg-destructive/10 text-destructive" : dir === "down" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+          )}>
+            {dir === "up" ? <ArrowUpRight className="h-3 w-3" /> : dir === "down" ? <ArrowDownRight className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
+            {trend.total !== undefined ? `${Math.round((trend.value / trend.total) * 100)}%` : trend.value}
+          </div>
+        )}
       </div>
       <p className="text-3xl font-extrabold tracking-tight">{value}</p>
       <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
         {label}
         {total !== undefined && <span className="text-muted-foreground/50"> / {total}</span>}
       </p>
+      {trend && <p className="text-[10px] text-muted-foreground/60 mt-0.5">{trend.label}</p>}
     </div>
   );
 }
