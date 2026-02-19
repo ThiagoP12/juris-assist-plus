@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { ArrowLeft, Shield, Edit, Trash2, Plus, X, Lock, RotateCcw } from "lucide-react";
+import { ArrowLeft, Shield, Edit, Trash2, Plus, X, Lock, RotateCcw, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -65,7 +65,12 @@ export default function ProcessoDetalhe() {
     const now = new Date();
     // Mutate mock data so status persists across re-renders/remounts
     const mockCase = mockCases.find((c) => c.id === id);
-    if (mockCase) mockCase.status = "em_andamento";
+    if (mockCase) {
+      mockCase.status = "em_andamento";
+      mockCase.reopened = true;
+      mockCase.reopenedAt = now.toISOString();
+      mockCase.reopenedReason = justificativa;
+    }
     setCurrentStatus("em_andamento");
     setReopenOpen(false);
     setReopenJustificativa("");
@@ -160,12 +165,18 @@ export default function ProcessoDetalhe() {
         </div>
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl font-bold">{caso.employee}</h1>
               {caso.confidentiality !== "normal" && (
                 <Badge variant="outline" className="text-[9px] border-destructive/30 text-destructive gap-1">
                   <Shield className="h-2.5 w-2.5" />
                   {caso.confidentiality === "ultra_restrito" ? "Ultra Restrito" : "Restrito"}
+                </Badge>
+              )}
+              {caso.reopened && (
+                <Badge variant="outline" className="text-[9px] border-warning/40 bg-warning/10 text-warning gap-1">
+                  <RefreshCw className="h-2.5 w-2.5" />
+                  Reaberto
                 </Badge>
               )}
             </div>

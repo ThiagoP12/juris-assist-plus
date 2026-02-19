@@ -36,6 +36,10 @@ export interface Case {
   amount?: number;
   /** Setor interno responsável por fornecer documentos/provas */
   responsible_sector?: 'dp' | 'rh' | 'frota' | 'vendas' | 'logistica' | 'ti';
+  /** Indica que o processo foi reaberto após encerramento */
+  reopened?: boolean;
+  reopenedAt?: string;
+  reopenedReason?: string;
 }
 
 export interface Task {
