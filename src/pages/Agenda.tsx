@@ -53,16 +53,17 @@ function formatDateStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 
-function getEventsForDate(date: Date, typeFilter: EventFilterType, assignmentFilter: AssignmentFilter, companyFilter: string): CalendarEvent[] {
+function getEventsForDate(date: Date, typeFilter: EventFilterType, assignmentFilter: AssignmentFilter, companyFilter: string, currentUser?: string): CalendarEvent[] {
   const dateStr = formatDateStr(date);
   const items: CalendarEvent[] = [];
+  const user = currentUser ?? CURRENT_USER;
 
   if (typeFilter === "todos" || typeFilter === "audiencia") {
     mockHearings.forEach((h) => {
       if (h.date !== dateStr) return;
       const caso = mockCases.find((c) => c.id === h.case_id);
       if (companyFilter !== "todas" && caso?.company_id !== companyFilter) return;
-      if (assignmentFilter === "minhas" && caso?.responsible !== CURRENT_USER) return;
+      if (assignmentFilter === "minhas" && caso?.responsible !== user) return;
       items.push({
         type: "audiencia", title: h.type, time: h.time, date: h.date,
         hour: parseInt(h.time.split(":")[0]), employee: h.employee,
@@ -77,7 +78,7 @@ function getEventsForDate(date: Date, typeFilter: EventFilterType, assignmentFil
       if (d.due_at !== dateStr) return;
       const caso = mockCases.find((c) => c.id === d.case_id);
       if (companyFilter !== "todas" && caso?.company_id !== companyFilter) return;
-      if (assignmentFilter === "minhas" && caso?.responsible !== CURRENT_USER) return;
+      if (assignmentFilter === "minhas" && caso?.responsible !== user) return;
       items.push({
         type: "prazo", title: d.title, date: d.due_at, employee: d.employee,
         caseId: d.case_id, caseNumber: d.case_number, companyId: caso?.company_id,
@@ -90,7 +91,7 @@ function getEventsForDate(date: Date, typeFilter: EventFilterType, assignmentFil
       if (!t.due_at.startsWith(dateStr)) return;
       const caso = t.case_id ? mockCases.find((c) => c.id === t.case_id) : undefined;
       if (companyFilter !== "todas" && caso && caso.company_id !== companyFilter) return;
-      if (assignmentFilter === "minhas" && !t.assignees.includes(CURRENT_USER)) return;
+      if (assignmentFilter === "minhas" && !t.assignees.includes(user)) return;
       const time = t.due_at.split("T")[1]?.slice(0,5);
       items.push({
         type: "tarefa", title: t.title, time, date: dateStr,
@@ -295,9 +296,9 @@ function SidePanel({ date, events, onEventClick }: { date: Date; events: Calenda
 }
 
 // ── Month View ──
-function MonthView({ selectedDate, onDayClick, typeFilter, assignmentFilter, companyFilter }: {
+function MonthView({ selectedDate, onDayClick, typeFilter, assignmentFilter, companyFilter, currentUser }: {
   selectedDate: Date; onDayClick: (d: Date) => void;
-  typeFilter: EventFilterType; assignmentFilter: AssignmentFilter; companyFilter: string;
+  typeFilter: EventFilterType; assignmentFilter: AssignmentFilter; companyFilter: string; currentUser?: string;
 }) {
   const year = selectedDate.getFullYear();
   const month = selectedDate.getMonth();
@@ -315,7 +316,7 @@ function MonthView({ selectedDate, onDayClick, typeFilter, assignmentFilter, com
       {Array.from({ length: daysInMonth }).map((_, i) => {
         const day = i + 1;
         const date = new Date(year, month, day);
-        const events = getEventsForDate(date, typeFilter, assignmentFilter, companyFilter);
+        const events = getEventsForDate(date, typeFilter, assignmentFilter, companyFilter, currentUser);
         const isToday = isSameDay(date, TODAY);
         const isSelected = isSameDay(date, selectedDate);
         return (
@@ -396,15 +397,14 @@ function TimeGrid({ columns, renderAllDay, renderEvent }: {
   );
 }
 
-function WeekView({ selectedDate, typeFilter, assignmentFilter, companyFilter, onEventClick }: {
-  selectedDate: Date; typeFilter: EventFilterType; assignmentFilter: AssignmentFilter; companyFilter: string;
-  onEventClick: (e: CalendarEvent) => void;
+function WeekView({ selectedDate, typeFilter, assignmentFilter, companyFilter, onEventClick, currentUser }: {
+  selectedDate: Date; typeFilter: EventFilterType; assignmentFilter: AssignmentFilter; companyFilter: string; onEventClick: (e: CalendarEvent) => void; currentUser?: string;
 }) {
   const weekDays = useMemo(() => getWeekDays(selectedDate), [selectedDate]);
   return (
     <TimeGrid columns={weekDays}
       renderAllDay={(date) => {
-        const events = getEventsForDate(date, typeFilter, assignmentFilter, companyFilter).filter((e) => e.type==="prazo");
+        const events = getEventsForDate(date, typeFilter, assignmentFilter, companyFilter, currentUser).filter((e) => e.type==="prazo");
         return events.map((e, i) => (
           <div key={i} onClick={() => onEventClick(e)} className={`mb-0.5 truncate rounded px-1 py-0.5 text-[9px] font-medium cursor-pointer hover:opacity-80 transition-opacity ${allDayColor(e.type)}`}>
             {e.title.slice(0,15)}
@@ -412,7 +412,7 @@ function WeekView({ selectedDate, typeFilter, assignmentFilter, companyFilter, o
         ));
       }}
       renderEvent={(date, hour) => {
-        const events = getEventsForDate(date, typeFilter, assignmentFilter, companyFilter).filter((e) => e.hour===hour);
+        const events = getEventsForDate(date, typeFilter, assignmentFilter, companyFilter, currentUser).filter((e) => e.hour===hour);
         return events.map((e, i) => (
           <div key={i} onClick={() => onEventClick(e)} className={`mb-0.5 rounded px-1.5 py-1 text-[9px] leading-tight cursor-pointer hover:opacity-80 transition-opacity ${eventColor(e.type)}`}>
             <div className="font-bold">{e.time}</div>
@@ -425,14 +425,14 @@ function WeekView({ selectedDate, typeFilter, assignmentFilter, companyFilter, o
   );
 }
 
-function DayView({ selectedDate, typeFilter, assignmentFilter, companyFilter, onEventClick }: {
+function DayView({ selectedDate, typeFilter, assignmentFilter, companyFilter, onEventClick, currentUser }: {
   selectedDate: Date; typeFilter: EventFilterType; assignmentFilter: AssignmentFilter; companyFilter: string;
-  onEventClick: (e: CalendarEvent) => void;
+  onEventClick: (e: CalendarEvent) => void; currentUser?: string;
 }) {
   return (
     <TimeGrid columns={[selectedDate]}
       renderAllDay={(date) => {
-        const events = getEventsForDate(date, typeFilter, assignmentFilter, companyFilter).filter((e) => e.type==="prazo");
+        const events = getEventsForDate(date, typeFilter, assignmentFilter, companyFilter, currentUser).filter((e) => e.type==="prazo");
         return events.map((e, i) => (
           <div key={i} onClick={() => onEventClick(e)} className={`mb-0.5 rounded px-2 py-1 text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${allDayColor(e.type)}`}>
             {e.title} {e.employee && <span className="opacity-75">· {e.employee}</span>}
@@ -440,7 +440,7 @@ function DayView({ selectedDate, typeFilter, assignmentFilter, companyFilter, on
         ));
       }}
       renderEvent={(date, hour) => {
-        const events = getEventsForDate(date, typeFilter, assignmentFilter, companyFilter).filter((e) => e.hour===hour);
+        const events = getEventsForDate(date, typeFilter, assignmentFilter, companyFilter, currentUser).filter((e) => e.hour===hour);
         return events.map((e, i) => (
           <div key={i} onClick={() => onEventClick(e)} className={`mb-1 rounded px-2 py-1.5 text-xs leading-tight cursor-pointer hover:opacity-80 transition-opacity ${eventColor(e.type)}`}>
             <div className="font-bold">{e.time} – {eventTypeLabel(e.type)}</div>
@@ -456,6 +456,7 @@ function DayView({ selectedDate, typeFilter, assignmentFilter, companyFilter, on
 // ═══════════════════════════ MAIN ═══════════════════════════
 export default function Agenda() {
   const { user } = useAuth();
+  const currentUserName = user?.name ?? CURRENT_USER;
   const isAdmin = user?.role === "admin" || user?.role === "responsavel_juridico_interno";
 
   const [selectedDate, setSelectedDate] = useState(new Date(2026,1,16));
@@ -505,7 +506,7 @@ export default function Agenda() {
 
   const handleExportICS = () => {
     const dateStr = formatDateStr(selectedDate);
-    const events = getEventsForDate(selectedDate, typeFilter, assignmentFilter, companyFilter);
+    const events = getEventsForDate(selectedDate, typeFilter, assignmentFilter, companyFilter, currentUserName);
     downloadICS(events, dateStr);
   };
 
@@ -536,7 +537,7 @@ export default function Agenda() {
     }
     let audiencias = 0, prazos = 0, tarefas = 0;
     dates.forEach((d) => {
-      const events = getEventsForDate(d, "todos", assignmentFilter, companyFilter);
+      const events = getEventsForDate(d, "todos", assignmentFilter, companyFilter, currentUserName);
       events.forEach((e) => {
         if (e.type === "audiencia") audiencias++;
         else if (e.type === "prazo") prazos++;
@@ -548,8 +549,8 @@ export default function Agenda() {
 
   // Side panel events
   const sidePanelEvents = useMemo(() =>
-    getEventsForDate(selectedDate, typeFilter, assignmentFilter, companyFilter),
-    [selectedDate, typeFilter, assignmentFilter, companyFilter]
+    getEventsForDate(selectedDate, typeFilter, assignmentFilter, companyFilter, currentUserName),
+    [selectedDate, typeFilter, assignmentFilter, companyFilter, currentUserName]
   );
 
   const activeFilters = (typeFilter !== "todos" ? 1 : 0) + (assignmentFilter !== "todos" ? 1 : 0) + (companyFilter !== "todas" ? 1 : 0);
@@ -708,9 +709,9 @@ export default function Agenda() {
         {/* Calendar + Side Panel */}
         <div className="flex gap-4">
           <div className="flex-1 min-w-0">
-            {view === "mes" && <MonthView selectedDate={selectedDate} onDayClick={handleDayClick} typeFilter={typeFilter} assignmentFilter={assignmentFilter} companyFilter={companyFilter} />}
-            {view === "semana" && <WeekView selectedDate={selectedDate} typeFilter={typeFilter} assignmentFilter={assignmentFilter} companyFilter={companyFilter} onEventClick={setSelectedEvent} />}
-            {view === "dia" && <DayView selectedDate={selectedDate} typeFilter={typeFilter} assignmentFilter={assignmentFilter} companyFilter={companyFilter} onEventClick={setSelectedEvent} />}
+            {view === "mes" && <MonthView selectedDate={selectedDate} onDayClick={handleDayClick} typeFilter={typeFilter} assignmentFilter={assignmentFilter} companyFilter={companyFilter} currentUser={currentUserName} />}
+            {view === "semana" && <WeekView selectedDate={selectedDate} typeFilter={typeFilter} assignmentFilter={assignmentFilter} companyFilter={companyFilter} onEventClick={setSelectedEvent} currentUser={currentUserName} />}
+            {view === "dia" && <DayView selectedDate={selectedDate} typeFilter={typeFilter} assignmentFilter={assignmentFilter} companyFilter={companyFilter} onEventClick={setSelectedEvent} currentUser={currentUserName} />}
           </div>
 
           {/* Side Panel - Desktop only */}

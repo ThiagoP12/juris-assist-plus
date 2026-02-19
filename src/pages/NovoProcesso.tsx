@@ -23,7 +23,7 @@ export default function NovoProcesso() {
   const [theme, setTheme] = useState("");
   const [status, setStatus] = useState<"em_andamento" | "encerrado">("em_andamento");
   const [responsible, setResponsible] = useState(user?.name ?? "");
-  const [manager, setManager] = useState("");
+  const [manager, setManager] = useState("nenhum");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,8 +131,8 @@ export default function NovoProcesso() {
             <SelectTrigger>
               <SelectValue placeholder="Selecione o gestor" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">Nenhum</SelectItem>
+              <SelectContent>
+              <SelectItem value="nenhum">Nenhum</SelectItem>
               {RESPONSAVEIS.map((r) => (
                 <SelectItem key={r} value={r}>{r}</SelectItem>
               ))}
