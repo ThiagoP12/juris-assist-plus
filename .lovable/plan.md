@@ -1,62 +1,45 @@
 
-## Limpar os Dados Mock do Dashboard
+## Limpar Contadores da Agenda
 
-### Contexto
+### Problema
 
-Os contadores no dashboard (processos, tarefas, prazos, alertas) vêm exclusivamente do arquivo `src/data/mock.ts`, que contém dados fictícios escritos diretamente no código. Eles não existem no Supabase.
+A Agenda continua mostrando 8 eventos (1 audiencia, 3 prazos, 4 tarefas) porque a funcao `getEventsForDate` em `src/pages/Agenda.tsx` nao filtra por status. Tarefas com status `concluida` e prazos com status `cumprido` ainda aparecem no calendario.
 
----
+### Solucao
 
-### Duas Opções Disponíveis
+Adicionar filtros de status na funcao `getEventsForDate` para excluir:
+- **Tarefas** com status `concluida`
+- **Prazos** com status `cumprido`
+- **Audiencias** de processos com status `encerrado`
 
-**Opção A — Zerar os arrays (dashboard em branco)**
-Esvaziar os arrays `mockCases`, `mockTasks`, `mockAlerts` e `mockDeadlines` no arquivo `src/data/mock.ts`, deixando o dashboard zerado e pronto para receber dados reais do Supabase no futuro.
+### Alteracao
 
-**Opção B — Remover apenas os itens que geram os contadores (recomendada)**
-Ajustar os dados mock para que reflitam um estado "limpo":
-- Marcar todos os casos como `encerrado` (zerando "processos ativos")
-- Marcar todas as tarefas como `concluida` (zerando "tarefas pendentes")
-- Marcar todos os prazos com `status: 'cumprido'` (zerando "prazos urgentes")
-- Marcar todos os alertas com `treated: true` (zerando "alertas não tratados")
+**Arquivo:** `src/pages/Agenda.tsx`
 
----
+Na funcao `getEventsForDate` (linhas 78-143), adicionar verificacoes de status:
 
-### O Que Será Alterado
+1. **Audiencias (linha 91-104):** Adicionar filtro para ignorar audiencias de processos encerrados:
+   ```
+   if (caso?.status === "encerrado") return;
+   ```
 
-**Arquivo:** `src/data/mock.ts`
+2. **Prazos (linha 106-118):** Adicionar filtro para ignorar prazos cumpridos:
+   ```
+   if (d.status === "cumprido") return;
+   ```
 
-Serão alterados os campos de status nos seguintes arrays:
+3. **Tarefas (linha 120-141):** Adicionar filtro para ignorar tarefas concluidas:
+   ```
+   if (t.status === "concluida") return;
+   ```
 
-```text
-mockCases     → status: 'encerrado'  (todos os registros)
-mockTasks     → status: 'concluida'  (todos os registros)
-mockDeadlines → status: 'cumprido'   (todos os registros)
-mockAlerts    → treated: true        (todos os registros)
-```
+### Resultado Esperado
 
----
-
-### Resultado Esperado no Dashboard
-
-| Indicador | Antes | Depois |
+| Indicador Agenda | Antes | Depois |
 |---|---|---|
-| Processos Ativos | 5 | 0 |
-| Tarefas Pendentes | 7 | 0 |
-| Prazos Urgentes | 1 | 0 |
-| Alertas Não Tratados | 4 | 0 |
+| Total no periodo | 8 | 0 |
+| Audiencias | 1 | 0 |
+| Prazos | 3 | 0 |
+| Tarefas | 4 | 0 |
 
-O banner de "próxima audiência" também desaparecerá, pois depende de audiências com status `agendada`.
-
----
-
-### Observação Importante
-
-Os alertas automáticos que aparecem depois de alguns segundos (simulados no `AlertsContext`) continuarão aparecendo temporariamente, pois são gerados por timers no código. Posso remover esses timers também se desejar.
-
----
-
-### Impacto
-
-- Sem risco de perda de dados reais (tudo é mock)
-- Nenhuma alteração no banco Supabase
-- Reversível a qualquer momento
+O calendario ficara limpo, sem eventos exibidos, e a secao "Proximos Eventos" tambem ficara vazia.
