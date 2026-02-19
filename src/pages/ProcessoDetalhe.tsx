@@ -61,12 +61,13 @@ export default function ProcessoDetalhe() {
 
   const handleReopen = () => {
     if (!reopenJustificativa.trim()) return;
-    setReopenLoading(true);
     const justificativa = reopenJustificativa.trim();
+    // Mutate mock data so status persists across re-renders/remounts
+    const mockCase = mockCases.find((c) => c.id === id);
+    if (mockCase) mockCase.status = "em_andamento";
+    setCurrentStatus("em_andamento");
     setReopenOpen(false);
     setReopenJustificativa("");
-    setCurrentStatus("em_andamento");
-    setReopenLoading(false);
     addNotification({
       title: "Processo reaberto",
       description: `O processo ${caso?.case_number} (${caso?.employee}) foi reaberto. Motivo: ${justificativa}`,
@@ -110,6 +111,9 @@ export default function ProcessoDetalhe() {
   };
 
   const handleStatusChange = (newStatus: string) => {
+    // Mutate mock data so status persists across re-renders/remounts
+    const mockCase = mockCases.find((c) => c.id === id);
+    if (mockCase) mockCase.status = newStatus as CaseStatus;
     setCurrentStatus(newStatus as CaseStatus);
     setEditStatus(false);
     toast({ title: `Status alterado para ${statusLabels[newStatus as CaseStatus]}` });
