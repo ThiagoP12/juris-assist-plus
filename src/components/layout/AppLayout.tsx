@@ -17,6 +17,8 @@ import {
   FileText,
   CheckSquare,
   ChevronDown,
+  ChevronRight,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -30,6 +32,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 
 const allNavItems = [
@@ -78,6 +82,63 @@ function CreateButton({ className }: { className?: string }) {
   );
 }
 
+function BellDropdown() {
+  const { alerts, untreatedCount, toggleTreated } = useAlerts();
+  const recent = alerts.filter((a) => !a.treated).slice(0, 5);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative h-8 w-8 rounded-xl text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50">
+          <Bell className="h-4 w-4" />
+          {untreatedCount > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold text-destructive-foreground shadow-sm" style={{ background: "var(--gradient-danger)" }}>
+              {untreatedCount > 9 ? "9+" : untreatedCount}
+            </span>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80 max-h-[420px] overflow-y-auto">
+        <DropdownMenuLabel className="flex items-center justify-between">
+          <span>Alertas não tratados</span>
+          {untreatedCount > 0 && (
+            <Badge variant="destructive" className="text-[10px] h-4">{untreatedCount}</Badge>
+          )}
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {recent.length === 0 ? (
+          <div className="p-4 text-center text-sm text-muted-foreground">Nenhum alerta pendente ✅</div>
+        ) : (
+          recent.map((a) => (
+            <div key={a.id} className={cn(
+              "flex items-start gap-2 px-3 py-2.5 hover:bg-accent transition-colors border-l-2",
+              a.severity === "urgente" ? "border-l-destructive" : a.severity === "atencao" ? "border-l-warning" : "border-l-muted"
+            )}>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold leading-snug line-clamp-1">{a.title}</p>
+                <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">{a.description}</p>
+              </div>
+              <button
+                onClick={() => toggleTreated(a.id)}
+                className="shrink-0 rounded p-0.5 hover:bg-success/10 text-muted-foreground hover:text-success transition-colors"
+                title="Marcar como tratada"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link to="/alertas" className="flex items-center justify-center gap-1 text-xs font-semibold text-primary cursor-pointer">
+            Ver todos os alertas <ChevronRight className="h-3 w-3" />
+          </Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export default function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const isMobile = useIsMobile();
@@ -116,6 +177,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 {roleLabels[user.role]}
               </Badge>
             )}
+            <BellDropdown />
             <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" onClick={logout}>
               <LogOut className="h-3.5 w-3.5" />
             </Button>
@@ -220,6 +282,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 {user ? roleLabels[user.role] : ""}
               </p>
             </div>
+            <BellDropdown />
             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-all" onClick={logout}>
               <LogOut className="h-3.5 w-3.5" />
             </Button>

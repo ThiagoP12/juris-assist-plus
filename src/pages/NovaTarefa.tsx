@@ -79,18 +79,21 @@ export default function NovaTarefa() {
     setSelectedUsers((prev) => prev.filter((u) => u !== name));
   };
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!description || !date || (!allDay && !time) || selectedUsers.length === 0) {
-      toast({
-        title: "Preencha os campos obrigatórios",
-        description: "Tarefa, responsáveis e data são obrigatórios.",
-        variant: "destructive",
-      });
+    const newErrors: Record<string, string> = {};
+    if (selectedUsers.length === 0) newErrors.users = "Adicione ao menos um responsável.";
+    if (!description.trim()) newErrors.description = "Descreva a tarefa.";
+    if (!date) newErrors.date = "Selecione uma data.";
+    if (!allDay && !time) newErrors.time = "Informe a hora ou marque 'Dia inteiro'.";
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
+    setErrors({});
 
-    // Notificação para responsável e gestor
     const responsavelNames = selectedUsers.join(", ");
     toast({
       title: "✅ Tarefa criada!",
@@ -197,7 +200,10 @@ export default function NovaTarefa() {
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                className="w-full justify-start text-left font-normal h-10 text-muted-foreground"
+                className={cn(
+                  "w-full justify-start text-left font-normal h-10 text-muted-foreground",
+                  errors.users && "border-destructive"
+                )}
               >
                 <Users className="mr-2 h-4 w-4" />
                 Buscar usuário...
@@ -234,6 +240,7 @@ export default function NovaTarefa() {
               </div>
             </PopoverContent>
           </Popover>
+          {errors.users && <p className="text-xs text-destructive">{errors.users}</p>}
           {selectedUsers.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {selectedUsers.map((u) => (
@@ -273,8 +280,10 @@ export default function NovaTarefa() {
             placeholder="O que essa pessoa irá fazer?"
             rows={3}
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => { setDescription(e.target.value); if (e.target.value.trim()) setErrors((p) => ({ ...p, description: "" })); }}
+            className={cn(errors.description && "border-destructive")}
           />
+          {errors.description && <p className="text-xs text-destructive">{errors.description}</p>}
         </div>
 
         {/* Data e Hora */}
@@ -287,7 +296,8 @@ export default function NovaTarefa() {
                   variant="outline"
                   className={cn(
                     "w-full justify-start text-left font-normal",
-                    !date && "text-muted-foreground"
+                    !date && "text-muted-foreground",
+                    errors.date && "border-destructive"
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
@@ -298,22 +308,24 @@ export default function NovaTarefa() {
                 <Calendar
                   mode="single"
                   selected={date}
-                  onSelect={(d) => { setDate(d); setDatePopoverOpen(false); }}
+                  onSelect={(d) => { setDate(d); setDatePopoverOpen(false); setErrors((p) => ({ ...p, date: "" })); }}
                   initialFocus
                   className="p-3 pointer-events-auto"
                 />
               </PopoverContent>
             </Popover>
+            {errors.date && <p className="text-xs text-destructive">{errors.date}</p>}
           </div>
           <div className="space-y-2">
             <Label>Hora {!allDay && "*"}</Label>
             <Input
               type="time"
               value={time}
-              onChange={(e) => setTime(e.target.value)}
+              onChange={(e) => { setTime(e.target.value); setErrors((p) => ({ ...p, time: "" })); }}
               disabled={allDay}
-              className={allDay ? "opacity-40" : ""}
+              className={cn(allDay ? "opacity-40" : "", errors.time && "border-destructive")}
             />
+            {errors.time && <p className="text-xs text-destructive">{errors.time}</p>}
           </div>
         </div>
 
