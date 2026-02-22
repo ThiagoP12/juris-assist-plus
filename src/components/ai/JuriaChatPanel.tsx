@@ -1,26 +1,45 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Bot, User, Sparkles, Copy, Check, RotateCcw, Scale, Zap } from "lucide-react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { Send, Bot, User, Sparkles, Copy, Check, RotateCcw, Scale, Zap, Database } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { toast } from "@/hooks/use-toast";
-import { buildJuriaContext } from "@/lib/buildJuriaContext";
+import { buildJuriaContext, buildDynamicSuggestions, buildWelcomeMessage } from "@/lib/buildJuriaContext";
 import { useTenantData } from "@/hooks/useTenantData";
+import { useAuth } from "@/contexts/AuthContext";
+import { mockCases } from "@/data/mock";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
-  timestamp: Date;
+  timestamp: string; // ISO string for serialization
 }
 
-const SUGGESTIONS = [
-  { icon: "📅", text: "Quais processos têm audiência próxima?" },
-  { icon: "⏰", text: "Qual o prazo mais urgente?" },
-  { icon: "📋", text: "Resuma os processos em andamento" },
-  { icon: "📝", text: "Quais tarefas estão pendentes?" },
-  { icon: "📊", text: "Me dê uma visão geral do escritório" },
-  { icon: "⚖️", text: "Quais os processos de maior risco?" },
-];
+const STORAGE_KEY_PREFIX = "juria_chat_";
+const MAX_STORED_MESSAGES = 50;
+
+function getStorageKey(userId: string) {
+  return `${STORAGE_KEY_PREFIX}${userId}`;
+}
+
+function loadMessages(userId: string): Message[] {
+  try {
+    const raw = localStorage.getItem(getStorageKey(userId));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as Message[];
+    return parsed.slice(-MAX_STORED_MESSAGES);
+  } catch {
+    return [];
+  }
+}
+
+function saveMessages(userId: string, messages: Message[]) {
+  try {
+    localStorage.setItem(getStorageKey(userId), JSON.stringify(messages.slice(-MAX_STORED_MESSAGES)));
+  } catch {}
+}
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/juria-chat`;
 
@@ -117,14 +136,34 @@ async function streamChat({
   onDone();
 }
 
+// Regex for Brazilian case numbers: XXXXXXX-XX.XXXX.X.XX.XXXX
+const CASE_NUMBER_REGEX = /(\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4})/g;
+
 function AssistantMessage({ content, isStreaming }: { content: string; isStreaming: boolean }) {
   const [copied, setCopied] = useState(false);
+  const navigate = useNavigate();
 
   const handleCopy = () => {
     navigator.clipboard.writeText(content);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  // Find case IDs for clickable links
+  const caseNumberToId = useMemo(() => {
+    const map = new Map<string, string>();
+    mockCases.forEach((c) => map.set(c.case_number, c.id));
+    return map;
+  }, []);
+
+  // Process content to make case numbers clickable
+  const processedContent = useMemo(() => {
+    return content.replace(CASE_NUMBER_REGEX, (match) => {
+      const id = caseNumberToId.get(match);
+      if (id) return `[${match}](/processos/${id})`;
+      return match;
+    });
+  }, [content, caseNumberToId]);
 
   return (
     <div className="group flex gap-2.5 justify-start animate-in fade-in slide-in-from-left-2 duration-300">
@@ -146,8 +185,27 @@ function AssistantMessage({ content, isStreaming }: { content: string; isStreami
             prose-code:text-primary prose-code:bg-primary/10 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-[11px] prose-code:before:content-none prose-code:after:content-none
             prose-li:my-0.5 prose-ul:my-1 prose-ol:my-1
             prose-hr:border-border/50 prose-hr:my-2
+            prose-a:text-primary prose-a:underline prose-a:cursor-pointer
           ">
-            <ReactMarkdown>{content}</ReactMarkdown>
+            <ReactMarkdown
+              components={{
+                a: ({ href, children }) => {
+                  if (href?.startsWith("/")) {
+                    return (
+                      <button
+                        onClick={() => navigate(href)}
+                        className="text-primary underline cursor-pointer hover:text-primary/80 transition-colors"
+                      >
+                        {children}
+                      </button>
+                    );
+                  }
+                  return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
+                },
+              }}
+            >
+              {processedContent}
+            </ReactMarkdown>
           </div>
           {isStreaming && (
             <div className="flex items-center gap-1.5 mt-1">
@@ -174,35 +232,77 @@ function AssistantMessage({ content, isStreaming }: { content: string; isStreami
 
 interface Props {
   onClose: () => void;
+  pathname: string;
 }
 
-export default function JuriaChatPanel({ onClose }: Props) {
-  const { cases } = useTenantData();
-  const [messages, setMessages] = useState<Message[]>([]);
+export default function JuriaChatPanel({ onClose, pathname }: Props) {
+  const { user } = useAuth();
+  const { cases, tasks, hearings, deadlines } = useTenantData();
+  const userId = user?.id ?? "anonymous";
+
+  // Load persisted messages
+  const [messages, setMessages] = useState<Message[]>(() => loadMessages(userId));
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Persist messages on change
+  useEffect(() => {
+    if (messages.length > 0) {
+      saveMessages(userId, messages);
+    }
+  }, [messages, userId]);
+
+  // Auto-scroll
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isStreaming]);
 
-  // Auto-focus input
+  // Auto-focus textarea
   useEffect(() => {
-    const t = setTimeout(() => inputRef.current?.focus(), 300);
+    const t = setTimeout(() => textareaRef.current?.focus(), 300);
     return () => clearTimeout(t);
   }, []);
 
+  // Dynamic suggestions
+  const suggestions = useMemo(
+    () => buildDynamicSuggestions(cases, tasks, hearings, deadlines, pathname),
+    [cases, tasks, hearings, deadlines, pathname],
+  );
+
+  // Welcome message (shown when no history)
+  const welcomeMessage = useMemo(
+    () => buildWelcomeMessage(cases, tasks, hearings, deadlines),
+    [cases, tasks, hearings, deadlines],
+  );
+
+  // Context stats for badge
+  const contextStats = useMemo(
+    () => ({ cases: cases.length, tasks: tasks.length }),
+    [cases, tasks],
+  );
+
+  // Auto-resize textarea
+  const resizeTextarea = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 120) + "px";
+  }, []);
+
+  useEffect(() => {
+    resizeTextarea();
+  }, [input, resizeTextarea]);
+
   const sendMessage = useCallback((text: string) => {
     if (!text.trim() || isStreaming) return;
-    const userMsg: Message = { role: "user", content: text.trim(), timestamp: new Date() };
+    const userMsg: Message = { role: "user", content: text.trim(), timestamp: new Date().toISOString() };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
     setInput("");
     setIsStreaming(true);
 
-    // Build context from current system data (use tenant-filtered cases)
     const context = buildJuriaContext(cases);
 
     let assistantSoFar = "";
@@ -214,7 +314,7 @@ export default function JuriaChatPanel({ onClose }: Props) {
         if (last?.role === "assistant") {
           return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: assistantSoFar } : m));
         }
-        return [...prev, { role: "assistant", content: assistantSoFar, timestamp: new Date() }];
+        return [...prev, { role: "assistant", content: assistantSoFar, timestamp: new Date().toISOString() }];
       });
     };
 
@@ -235,9 +335,21 @@ export default function JuriaChatPanel({ onClose }: Props) {
     sendMessage(input);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(input);
+    }
+  };
+
   const clearChat = () => {
     setMessages([]);
+    try {
+      localStorage.removeItem(getStorageKey(userId));
+    } catch {}
   };
+
+  const showWelcome = messages.length === 0;
 
   return (
     <div className="flex h-[540px] max-h-[80svh] flex-col rounded-2xl border bg-background shadow-2xl overflow-hidden">
@@ -257,7 +369,13 @@ export default function JuriaChatPanel({ onClose }: Props) {
               <span className="text-[9px] font-bold text-primary">PRO</span>
             </div>
           </div>
-          <p className="text-[10px] text-muted-foreground">Assistente jurídica trabalhista • Conectada aos seus dados</p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-[10px] text-muted-foreground">Assistente jurídica trabalhista</p>
+            <Badge variant="outline" className="h-4 px-1.5 text-[8px] font-medium text-muted-foreground border-border/60 gap-0.5">
+              <Database className="h-2.5 w-2.5" />
+              {contextStats.cases}p · {contextStats.tasks}t
+            </Badge>
+          </div>
         </div>
         <div className="flex items-center gap-1.5">
           {messages.length > 0 && (
@@ -274,7 +392,7 @@ export default function JuriaChatPanel({ onClose }: Props) {
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-        {messages.length === 0 && (
+        {showWelcome && (
           <div className="flex flex-col items-center gap-5 pt-4 text-center animate-in fade-in duration-500">
             <div className="relative">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/15 to-primary/5 ring-1 ring-primary/10 shadow-lg shadow-primary/5">
@@ -284,14 +402,14 @@ export default function JuriaChatPanel({ onClose }: Props) {
                 <Sparkles className="h-3.5 w-3.5 text-success" />
               </div>
             </div>
-            <div>
-              <p className="text-sm font-bold">Olá! Sou a Juria ⚖️</p>
-              <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed max-w-[300px]">
-                Sua assistente jurídica com IA. Estou conectada aos dados do seu sistema — pergunte sobre processos, prazos, audiências e tarefas.
-              </p>
+            {/* Contextual welcome message */}
+            <div className="max-w-[320px]">
+              <div className="prose prose-sm text-xs text-muted-foreground leading-relaxed text-center prose-strong:text-foreground">
+                <ReactMarkdown>{welcomeMessage}</ReactMarkdown>
+              </div>
             </div>
             <div className="grid w-full grid-cols-2 gap-2">
-              {SUGGESTIONS.map((s) => (
+              {suggestions.map((s) => (
                 <button
                   key={s.text}
                   onClick={() => sendMessage(s.text)}
@@ -308,7 +426,7 @@ export default function JuriaChatPanel({ onClose }: Props) {
         {messages.map((msg, i) =>
           msg.role === "user" ? (
             <div key={i} className="flex gap-2.5 justify-end animate-in fade-in slide-in-from-right-2 duration-200">
-              <div className="max-w-[85%] rounded-2xl rounded-br-md bg-primary px-3.5 py-2.5 text-xs text-primary-foreground shadow-sm">
+              <div className="max-w-[85%] rounded-2xl rounded-br-md bg-primary px-3.5 py-2.5 text-xs text-primary-foreground shadow-sm whitespace-pre-wrap">
                 {msg.content}
               </div>
               <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted ring-1 ring-border">
@@ -346,26 +464,28 @@ export default function JuriaChatPanel({ onClose }: Props) {
       {/* Quick suggestions after conversation */}
       {messages.length > 0 && !isStreaming && (
         <div className="flex gap-1.5 overflow-x-auto px-4 py-1.5 border-t bg-muted/20 scrollbar-hide">
-          {SUGGESTIONS.slice(0, 4).map((s) => (
+          {suggestions.slice(0, 4).map((s) => (
             <button
               key={s.text}
               onClick={() => sendMessage(s.text)}
               className="shrink-0 rounded-full border bg-card px-2.5 py-1 text-[10px] text-muted-foreground hover:text-foreground hover:border-primary/20 transition-all duration-150 whitespace-nowrap hover:shadow-sm"
             >
-              {s.icon} {s.text.slice(0, 30)}…
+              {s.icon} {s.text.length > 30 ? s.text.slice(0, 30) + "…" : s.text}
             </button>
           ))}
         </div>
       )}
 
-      {/* Input */}
-      <form onSubmit={handleSubmit} className="flex items-center gap-2 border-t bg-card px-3 py-3">
-        <input
-          ref={inputRef}
+      {/* Input — expandable textarea */}
+      <form onSubmit={handleSubmit} className="flex items-end gap-2 border-t bg-card px-3 py-3">
+        <textarea
+          ref={textareaRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder="Pergunte à Juria..."
-          className="flex-1 rounded-xl border-0 bg-muted px-3.5 py-2.5 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary/30 transition-shadow duration-200"
+          rows={1}
+          className="flex-1 resize-none rounded-xl border-0 bg-muted px-3.5 py-2.5 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary/30 transition-shadow duration-200 max-h-[120px]"
           disabled={isStreaming}
         />
         <Button
