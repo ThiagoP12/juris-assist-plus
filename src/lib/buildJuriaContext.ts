@@ -135,3 +135,117 @@ export function buildCaseContext(caso: Case): string {
 
   return lines.join("\n");
 }
+
+// ──────────────────────────────────────────────────────────────
+// Dynamic suggestions & contextual welcome
+// ──────────────────────────────────────────────────────────────
+
+interface DynamicSuggestion {
+  icon: string;
+  text: string;
+}
+
+/**
+ * Generate dynamic suggestions based on actual system data + current route.
+ */
+export function buildDynamicSuggestions(
+  cases: Case[],
+  tasks: Task[],
+  hearings: Hearing[],
+  deadlines: Deadline[],
+  pathname: string,
+): DynamicSuggestion[] {
+  const now = new Date();
+  const suggestions: DynamicSuggestion[] = [];
+
+  // Deadline within 3 days
+  const urgentDeadlines = deadlines.filter((d) => {
+    if (d.status !== "pendente") return false;
+    const diff = (new Date(d.due_at).getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+    return diff >= 0 && diff <= 3;
+  });
+  if (urgentDeadlines.length > 0) {
+    suggestions.push({ icon: "⏰", text: "Quais prazos vencem esta semana?" });
+  }
+
+  // Upcoming hearing
+  const nextHearing = hearings.find((h) => h.status === "agendada" && new Date(h.date) >= now);
+  if (nextHearing) {
+    suggestions.push({ icon: "📅", text: `Me prepare para a audiência de ${nextHearing.employee}` });
+  }
+
+  // Overdue tasks
+  const overdueTasks = tasks.filter((t) => (t.status === "aberta" || t.status === "em_andamento") && new Date(t.due_at) < now);
+  if (overdueTasks.length > 0) {
+    suggestions.push({ icon: "🚨", text: "Quais tarefas estão atrasadas?" });
+  }
+
+  // Route-specific suggestions
+  if (pathname.startsWith("/agenda")) {
+    suggestions.push({ icon: "🗓️", text: "Resuma minha semana" });
+    suggestions.push({ icon: "📆", text: "Quais compromissos tenho amanhã?" });
+  } else if (pathname.startsWith("/processos") && pathname.split("/").length <= 2) {
+    suggestions.push({ icon: "⚖️", text: "Quais os processos de maior risco?" });
+  } else if (pathname.startsWith("/dashboard") || pathname === "/") {
+    suggestions.push({ icon: "📊", text: "Me dê uma visão geral do escritório" });
+    suggestions.push({ icon: "⚠️", text: "Quais alertas precisam de atenção?" });
+  } else if (pathname.startsWith("/tarefas")) {
+    suggestions.push({ icon: "📋", text: "Quais tarefas estão pendentes?" });
+  }
+
+  // Fixed fallback suggestions if we have fewer than 4
+  const fixed: DynamicSuggestion[] = [
+    { icon: "📋", text: "Resuma os processos em andamento" },
+    { icon: "📊", text: "Me dê uma visão geral do escritório" },
+    { icon: "⏰", text: "Qual o prazo mais urgente?" },
+    { icon: "⚖️", text: "Quais os processos de maior risco?" },
+  ];
+
+  // Remove duplicates by text
+  const seen = new Set(suggestions.map((s) => s.text));
+  for (const f of fixed) {
+    if (suggestions.length >= 6) break;
+    if (!seen.has(f.text)) {
+      suggestions.push(f);
+      seen.add(f.text);
+    }
+  }
+
+  return suggestions.slice(0, 6);
+}
+
+/**
+ * Build a contextual welcome message based on real data (no AI call).
+ */
+export function buildWelcomeMessage(
+  cases: Case[],
+  tasks: Task[],
+  hearings: Hearing[],
+  deadlines: Deadline[],
+): string {
+  const now = new Date();
+  const hour = now.getHours();
+  const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
+
+  const pendingDeadlines = deadlines.filter((d) => d.status === "pendente");
+  const upcomingHearings = hearings.filter((h) => h.status === "agendada");
+  const openTasks = tasks.filter((t) => t.status === "aberta" || t.status === "em_andamento");
+
+  const parts: string[] = [`${greeting}! 👋`];
+  const stats: string[] = [];
+
+  if (cases.length > 0) stats.push(`**${cases.length}** processo${cases.length > 1 ? "s" : ""}`);
+  if (pendingDeadlines.length > 0) stats.push(`**${pendingDeadlines.length}** prazo${pendingDeadlines.length > 1 ? "s" : ""} pendente${pendingDeadlines.length > 1 ? "s" : ""}`);
+  if (upcomingHearings.length > 0) stats.push(`**${upcomingHearings.length}** audiência${upcomingHearings.length > 1 ? "s" : ""} agendada${upcomingHearings.length > 1 ? "s" : ""}`);
+  if (openTasks.length > 0) stats.push(`**${openTasks.length}** tarefa${openTasks.length > 1 ? "s" : ""} aberta${openTasks.length > 1 ? "s" : ""}`);
+
+  if (stats.length > 0) {
+    parts.push(`Você tem ${stats.join(", ")}.`);
+  } else {
+    parts.push("Tudo tranquilo por aqui — nenhum prazo ou tarefa pendente no momento.");
+  }
+
+  parts.push("\nComo posso ajudar?");
+
+  return parts.join(" ");
+}
