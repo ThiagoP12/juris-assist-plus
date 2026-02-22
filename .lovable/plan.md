@@ -1,66 +1,79 @@
 
 
-## Melhorias para a Juria - Plano Completo
+## Sugestoes de Melhorias para o SIAG
 
-### 1. Historico de Conversas com Persistencia Local
-Atualmente o chat perde toda a conversa ao fechar o painel. Salvar o historico no `localStorage` para que o usuario possa continuar de onde parou.
+### Categoria 1: Funcionalidades Novas
 
-- Persistir mensagens no `localStorage` com chave por usuario
-- Ao abrir o painel, restaurar a conversa anterior
-- Botao "Nova Conversa" limpa o historico salvo
-- Limite de 50 mensagens salvas para nao sobrecarregar
+**1.1 Dark Mode / Tema Escuro**
+O sistema usa Tailwind com variaveis CSS e ja tem `next-themes` instalado, mas nao implementa alternancia de tema. Adicionar um toggle de tema no header/sidebar permitiria uso noturno confortavel.
 
-### 2. Sugestoes Dinamicas Baseadas no Contexto
-As sugestoes atuais sao estaticas. Tornar as sugestoes inteligentes com base nos dados reais do sistema.
+**1.2 Busca Global (Command Palette)**
+Implementar um atalho Ctrl+K / Cmd+K que abre um painel de busca global (usando o `cmdk` que ja esta instalado). Permitiria buscar processos, tarefas, audiencias e navegar rapidamente a qualquer pagina.
 
-- Se ha prazo vencendo em 3 dias: sugerir "Quais prazos vencem esta semana?"
-- Se ha audiencia proxima: sugerir "Me prepare para a audiencia de [reclamante]"
-- Se ha tarefas atrasadas: sugerir "Quais tarefas estao atrasadas?"
-- Gerar ate 4 sugestoes dinamicas + 2 fixas
+**1.3 Exportacao de Relatorios em PDF**
+A pagina de Relatorios ja tem graficos ricos (Recharts), mas so exporta CSV em Tarefas. Adicionar exportacao em PDF com os graficos renderizados daria mais valor ao sistema.
 
-### 3. Juria na Pagina da Agenda (Contexto por Pagina)
-Ao abrir a Juria estando na pagina /agenda, ela deve saber que o usuario esta vendo a agenda e oferecer insights relevantes automaticamente.
-
-- Detectar a rota atual (`useLocation`) e injetar contexto extra
-- Na Agenda: adicionar sugestoes como "Resuma minha semana" ou "Quais compromissos tenho amanha?"
-- No Processo: sugestoes especificas do processo aberto
-- No Dashboard: visao geral e alertas prioritarios
-
-### 4. Mensagem de Boas-Vindas Contextual
-Ao abrir o chat sem historico, a Juria envia uma mensagem automatica com um resumo rapido do sistema.
-
-- "Bom dia! Voce tem X prazos pendentes, Y audiencias esta semana e Z tarefas abertas."
-- Mensagem gerada localmente (sem chamar a IA), baseada nos dados do `useTenantData`
-- Exibida como mensagem do assistente no inicio da conversa
-
-### 5. Acoes Rapidas no Chat
-Quando a Juria menciona um processo ou prazo, permitir que o usuario clique para navegar diretamente.
-
-- Detectar numeros de processo nas respostas (regex no formato XXXXX-XX.XXXX.X.XX.XXXX)
-- Renderizar como links clicaveis que navegam para `/processos/:id`
-- Adicionar botoes de acao apos respostas: "Criar tarefa", "Ver processo"
-
-### 6. Textarea Expandivel + Atalhos de Teclado
-Substituir o input simples por um textarea que cresce conforme o usuario digita, com suporte a Shift+Enter para nova linha e Enter para enviar.
-
-### 7. Indicador de Tokens/Contexto
-Exibir discretamente quantos processos/tarefas estao sendo enviados como contexto para a IA, dando transparencia ao usuario.
-
-- Badge pequeno no header: "Conectada a X processos, Y tarefas"
+**1.4 Notificacoes Push (PWA)**
+O projeto ja tem configuracao PWA (`vite-plugin-pwa`, icones `pwa-192x192.png`), mas nao ha service worker ativo para push notifications. Ativar notificacoes push para prazos urgentes e audiencias proximas.
 
 ---
 
-### Detalhes Tecnicos
+### Categoria 2: Melhorias de UX
 
-**Arquivos modificados:**
-- `src/components/ai/JuriaChatPanel.tsx` — Historico local, sugestoes dinamicas, boas-vindas contextual, textarea, links clicaveis, indicador de contexto
-- `src/components/ai/JuriaChatButton.tsx` — Passar rota atual para o painel
-- `src/lib/buildJuriaContext.ts` — Helper para gerar sugestoes dinamicas e mensagem de boas-vindas
+**2.1 Drag & Drop no Kanban de Processos**
+A pagina de Processos ja tem visualizacao Kanban, mas os cards nao podem ser arrastados entre colunas. Adicionar drag-and-drop para alterar status dos processos visualmente.
 
-**Abordagem:**
-- Persistencia via `localStorage` (sem necessidade de banco)
-- Sugestoes dinamicas calculadas localmente a partir de `useTenantData`
-- Links clicaveis via componente customizado no `ReactMarkdown` (override de `<a>` e regex para numeros de processo)
-- Textarea com `onKeyDown` para Enter/Shift+Enter e `auto-resize` via ref
-- Nenhuma alteracao na edge function necessaria
+**2.2 Atalhos de Teclado**
+Adicionar atalhos como:
+- `N` para novo processo
+- `T` para nova tarefa  
+- `/` para focar na busca
+- `Esc` para fechar modais
+
+**2.3 Skeleton Loading**
+Substituir os estados de loading vazios por skeletons animados (o componente `skeleton.tsx` ja existe no projeto mas nao e usado nas paginas principais).
+
+**2.4 Modo Offline**
+Aproveitar a infraestrutura PWA para cache de dados e funcionamento offline basico — visualizacao de processos e tarefas mesmo sem conexao.
+
+---
+
+### Categoria 3: Melhorias na Juria (IA)
+
+**3.1 Gerador de Pecas Processuais**
+Permitir que a Juria gere rascunhos de pecas (contestacao, recurso, manifestacao) com base nos dados do processo. O usuario pediria "Gere uma contestacao para o processo X" e a Juria produziria um rascunho em Markdown com base nas informacoes do caso.
+
+**3.2 Analise de Risco Automatica**
+Ao abrir um processo, a Juria poderia calcular automaticamente um score de risco (baixo/medio/alto) com base em: valor da causa, status, prazos proximos, audiencias pendentes. Exibir como badge no card do processo.
+
+**3.3 Voz para Texto no Chat**
+Adicionar um botao de microfone no chat da Juria usando a Web Speech API para ditar perguntas por voz.
+
+---
+
+### Categoria 4: Dados e Integracao
+
+**4.1 Migrar de Mock para Supabase**
+Atualmente todo o sistema usa dados em `mock.ts` (array estático). Migrar para tabelas reais no Supabase traria: persistencia real, multi-usuario, e dados que sobrevivem a deploys.
+
+**4.2 Dashboard com Filtros por Periodo**
+O dashboard mostra KPIs sem filtro temporal. Adicionar um seletor de periodo (7d, 30d, 3m, YTD) como ja existe em Relatorios, para analisar tendencias.
+
+**4.3 Importacao de Processos via CSV/Excel**
+Adicionar funcionalidade de importacao em massa para facilitar a migracao de dados de outros sistemas.
+
+---
+
+### Prioridade Recomendada
+
+| Prioridade | Melhoria | Impacto |
+|---|---|---|
+| Alta | Busca Global (Cmd+K) | UX — navegacao rapida |
+| Alta | Dark Mode | UX — conforto visual |
+| Alta | Migrar para Supabase | Infra — dados reais |
+| Media | Drag & Drop Kanban | UX — gestao visual |
+| Media | Gerador de Pecas (IA) | Produtividade |
+| Media | Analise de Risco (IA) | Inteligencia |
+| Baixa | Notificacoes Push | Engajamento |
+| Baixa | Modo Offline | Disponibilidade |
 
