@@ -4,11 +4,11 @@
 
 ### Categoria 1: Funcionalidades Novas
 
-**1.1 Dark Mode / Tema Escuro**
-O sistema usa Tailwind com variaveis CSS e ja tem `next-themes` instalado, mas nao implementa alternancia de tema. Adicionar um toggle de tema no header/sidebar permitiria uso noturno confortavel.
+**1.1 Dark Mode / Tema Escuro** ✅ IMPLEMENTADO
+Toggle de tema no header/sidebar com next-themes. Variáveis CSS já existiam no index.css.
 
-**1.2 Busca Global (Command Palette)**
-Implementar um atalho Ctrl+K / Cmd+K que abre um painel de busca global (usando o `cmdk` que ja esta instalado). Permitiria buscar processos, tarefas, audiencias e navegar rapidamente a qualquer pagina.
+**1.2 Busca Global (Command Palette)** ✅ IMPLEMENTADO
+Ctrl+K / Cmd+K abre painel de busca global com cmdk. Busca processos, tarefas, audiências, prazos e páginas.
 
 **1.3 Exportacao de Relatorios em PDF**
 A pagina de Relatorios ja tem graficos ricos (Recharts), mas so exporta CSV em Tarefas. Adicionar exportacao em PDF com os graficos renderizados daria mais valor ao sistema.
@@ -68,12 +68,11 @@ Adicionar funcionalidade de importacao em massa para facilitar a migracao de dad
 
 | Prioridade | Melhoria | Impacto |
 |---|---|---|
-| Alta | Busca Global (Cmd+K) | UX — navegacao rapida |
-| Alta | Dark Mode | UX — conforto visual |
+| ✅ | Busca Global (Cmd+K) | UX — navegacao rapida |
+| ✅ | Dark Mode | UX — conforto visual |
 | Alta | Migrar para Supabase | Infra — dados reais |
 | Media | Drag & Drop Kanban | UX — gestao visual |
 | Media | Gerador de Pecas (IA) | Produtividade |
 | Media | Analise de Risco (IA) | Inteligencia |
 | Baixa | Notificacoes Push | Engajamento |
 | Baixa | Modo Offline | Disponibilidade |
-

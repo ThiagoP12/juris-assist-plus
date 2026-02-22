@@ -3,11 +3,13 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AlertsProvider } from "@/contexts/AlertsContext";
 import { NotificationsProvider } from "@/contexts/NotificationsContext";
 import { MockDataProvider } from "@/contexts/MockDataContext";
 import AppLayout from "@/components/layout/AppLayout";
+import GlobalSearch from "@/components/search/GlobalSearch";
 import Login from "@/pages/Login";
 import Index from "@/pages/Index";
 import Processos from "@/pages/Processos";
@@ -85,17 +87,20 @@ function AuthenticatedApp() {
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <AuthProvider>
-        <BrowserRouter>
-          <AuthenticatedApp />
-        </BrowserRouter>
-      </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <AuthProvider>
+          <BrowserRouter>
+            <GlobalSearch />
+            <AuthenticatedApp />
+          </BrowserRouter>
+        </AuthProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ThemeProvider>
 );
 
 export default App;
