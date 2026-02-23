@@ -16,6 +16,7 @@ import { statusLabels, type CaseStatus, type Case } from "@/data/mock";
 import { useTenantData } from "@/hooks/useTenantData";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+import { HeaderSkeleton, StatSkeleton, FiltersSkeleton, TabsSkeleton, ListItemSkeleton, GridCardSkeleton } from "@/components/ui/page-skeleton";
 
 const formatCurrency = (value?: number) =>
   value != null ? value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : null;
@@ -305,6 +306,12 @@ export default function Processos() {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 600);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Reset to page 1 whenever filters/sort change
   useEffect(() => { setPage(1); }, [search, companyFilter, statusTab, responsibleFilter, themeFilter, sortField, sortDir]);
@@ -455,8 +462,20 @@ export default function Processos() {
     URL.revokeObjectURL(url);
   };
 
+  if (isLoading) {
+    return (
+      <div className="p-4 md:p-6 lg:p-8 space-y-5 animate-in fade-in duration-500">
+        <HeaderSkeleton />
+        <StatSkeleton count={5} />
+        <FiltersSkeleton />
+        <TabsSkeleton count={6} />
+        {viewMode === "grid" ? <GridCardSkeleton count={6} /> : <ListItemSkeleton count={6} />}
+      </div>
+    );
+  }
+
   return (
-    <div className="p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header */}
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>

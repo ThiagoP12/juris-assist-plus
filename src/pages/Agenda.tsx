@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   ChevronLeft, ChevronRight, CalendarDays, Clock, CheckCircle2,
@@ -16,6 +16,7 @@ import { mockHearings, mockDeadlines, mockTasks, mockCases, mockCompanies } from
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { HeaderSkeleton, StatSkeleton, CalendarSkeleton } from "@/components/ui/page-skeleton";
 
 import {
   MONTHS, WEEKDAYS_FULL, TODAY,
@@ -39,6 +40,12 @@ export default function Agenda() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [timeOverrides, setTimeOverrides] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleSaveTime = useCallback((eventKey: string, newTime: string) => {
     setTimeOverrides((prev) => ({ ...prev, [eventKey]: newTime }));
@@ -180,6 +187,16 @@ export default function Agenda() {
 
   const activeFilters = (typeFilter !== "todos" ? 1 : 0) + (assignmentFilter !== "todos" ? 1 : 0) + (companyFilter !== "todas" ? 1 : 0);
   const isToday = isSameDay(selectedDate, TODAY);
+
+  if (isLoading) {
+    return (
+      <div className="p-4 md:p-6 lg:p-8 space-y-5 animate-in fade-in duration-500">
+        <HeaderSkeleton />
+        <StatSkeleton count={4} />
+        <CalendarSkeleton />
+      </div>
+    );
+  }
 
   return (
     <TooltipProvider>

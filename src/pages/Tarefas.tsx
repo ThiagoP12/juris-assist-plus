@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Plus, CheckCircle2, Circle, Clock, AlertTriangle, ListChecks, Trash2, Search, X, Download, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { taskStatusLabels, priorityLabels, type Priority, type TaskStatus } from
 import { useTenantData } from "@/hooks/useTenantData";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { HeaderSkeleton, FiltersSkeleton, TabsSkeleton, TaskSkeleton } from "@/components/ui/page-skeleton";
 
 const priorityColors: Record<Priority, string> = {
   baixa: "bg-muted text-muted-foreground",
@@ -41,6 +42,12 @@ export default function Tarefas() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const { tasks } = useTenantData();
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const allAssignees = useMemo(() => {
     const set = new Set<string>();
@@ -130,8 +137,19 @@ export default function Tarefas() {
     setAssigneeFilter("todos");
   };
 
+  if (isLoading) {
+    return (
+      <div className="p-4 md:p-6 lg:p-8 space-y-5 animate-in fade-in duration-500">
+        <HeaderSkeleton />
+        <FiltersSkeleton />
+        <TabsSkeleton count={5} />
+        <TaskSkeleton count={5} />
+      </div>
+    );
+  }
+
   return (
-    <div className="p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">Tarefas</h1>
