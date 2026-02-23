@@ -1,1 +1,7 @@
 project_id = "liawkcjijuokmkerqmqk"
+
+[functions.juria-chat]
+verify_jwt = false
+
+[functions.fetch-movements]
+verify_jwt = false

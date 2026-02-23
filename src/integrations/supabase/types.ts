@@ -122,6 +122,82 @@ export type Database = {
           },
         ]
       }
+      case_movements: {
+        Row: {
+          case_id: string
+          court: string | null
+          created_at: string
+          description: string | null
+          external_id: string | null
+          id: string
+          movement_date: string
+          source: string
+          title: string
+        }
+        Insert: {
+          case_id: string
+          court?: string | null
+          created_at?: string
+          description?: string | null
+          external_id?: string | null
+          id?: string
+          movement_date: string
+          source?: string
+          title: string
+        }
+        Update: {
+          case_id?: string
+          court?: string | null
+          created_at?: string
+          description?: string | null
+          external_id?: string | null
+          id?: string
+          movement_date?: string
+          source?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_movements_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      case_sync_log: {
+        Row: {
+          case_id: string
+          id: string
+          last_status: string | null
+          last_synced_at: string
+          movements_count: number | null
+        }
+        Insert: {
+          case_id: string
+          id?: string
+          last_status?: string | null
+          last_synced_at?: string
+          movements_count?: number | null
+        }
+        Update: {
+          case_id?: string
+          id?: string
+          last_status?: string | null
+          last_synced_at?: string
+          movements_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_sync_log_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: true
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cases: {
         Row: {
           amount: number | null
