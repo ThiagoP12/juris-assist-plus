@@ -14,16 +14,795 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      alerts: {
+        Row: {
+          case_id: string | null
+          case_number: string | null
+          created_at: string
+          description: string | null
+          employee_name: string | null
+          event_date: string | null
+          id: string
+          severity: Database["public"]["Enums"]["alert_severity"]
+          title: string
+          treated: boolean | null
+          type: Database["public"]["Enums"]["alert_type"]
+        }
+        Insert: {
+          case_id?: string | null
+          case_number?: string | null
+          created_at?: string
+          description?: string | null
+          employee_name?: string | null
+          event_date?: string | null
+          id?: string
+          severity?: Database["public"]["Enums"]["alert_severity"]
+          title: string
+          treated?: boolean | null
+          type: Database["public"]["Enums"]["alert_type"]
+        }
+        Update: {
+          case_id?: string | null
+          case_number?: string | null
+          created_at?: string
+          description?: string | null
+          employee_name?: string | null
+          event_date?: string | null
+          id?: string
+          severity?: Database["public"]["Enums"]["alert_severity"]
+          title?: string
+          treated?: boolean | null
+          type?: Database["public"]["Enums"]["alert_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alerts_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      case_checklists: {
+        Row: {
+          case_id: string
+          created_at: string
+          hearing_id: string | null
+          id: string
+          items: Json
+          template_id: string | null
+          template_name: string | null
+          type: Database["public"]["Enums"]["checklist_type"]
+          updated_at: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          hearing_id?: string | null
+          id?: string
+          items?: Json
+          template_id?: string | null
+          template_name?: string | null
+          type: Database["public"]["Enums"]["checklist_type"]
+          updated_at?: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          hearing_id?: string | null
+          id?: string
+          items?: Json
+          template_id?: string | null
+          template_name?: string | null
+          type?: Database["public"]["Enums"]["checklist_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_checklists_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_checklists_hearing_id_fkey"
+            columns: ["hearing_id"]
+            isOneToOne: false
+            referencedRelation: "hearings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_checklists_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cases: {
+        Row: {
+          amount: number | null
+          branch: string | null
+          case_number: string
+          company_id: string | null
+          confidentiality: Database["public"]["Enums"]["confidentiality_level"]
+          court: string | null
+          created_at: string
+          employee_id: string | null
+          employee_name: string | null
+          filed_at: string | null
+          id: string
+          lawyer: string | null
+          next_deadline: string | null
+          next_hearing: string | null
+          reopened: boolean | null
+          reopened_at: string | null
+          reopened_reason: string | null
+          responsible: string | null
+          responsible_sector:
+            | Database["public"]["Enums"]["responsible_sector"]
+            | null
+          status: Database["public"]["Enums"]["case_status"]
+          theme: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount?: number | null
+          branch?: string | null
+          case_number: string
+          company_id?: string | null
+          confidentiality?: Database["public"]["Enums"]["confidentiality_level"]
+          court?: string | null
+          created_at?: string
+          employee_id?: string | null
+          employee_name?: string | null
+          filed_at?: string | null
+          id?: string
+          lawyer?: string | null
+          next_deadline?: string | null
+          next_hearing?: string | null
+          reopened?: boolean | null
+          reopened_at?: string | null
+          reopened_reason?: string | null
+          responsible?: string | null
+          responsible_sector?:
+            | Database["public"]["Enums"]["responsible_sector"]
+            | null
+          status?: Database["public"]["Enums"]["case_status"]
+          theme?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number | null
+          branch?: string | null
+          case_number?: string
+          company_id?: string | null
+          confidentiality?: Database["public"]["Enums"]["confidentiality_level"]
+          court?: string | null
+          created_at?: string
+          employee_id?: string | null
+          employee_name?: string | null
+          filed_at?: string | null
+          id?: string
+          lawyer?: string | null
+          next_deadline?: string | null
+          next_hearing?: string | null
+          reopened?: boolean | null
+          reopened_at?: string | null
+          reopened_reason?: string | null
+          responsible?: string | null
+          responsible_sector?:
+            | Database["public"]["Enums"]["responsible_sector"]
+            | null
+          status?: Database["public"]["Enums"]["case_status"]
+          theme?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cases_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cases_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_templates: {
+        Row: {
+          created_at: string
+          id: string
+          items: Json
+          name: string
+          theme: string | null
+          type: Database["public"]["Enums"]["checklist_type"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          items?: Json
+          name: string
+          theme?: string | null
+          type: Database["public"]["Enums"]["checklist_type"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          items?: Json
+          name?: string
+          theme?: string | null
+          type?: Database["public"]["Enums"]["checklist_type"]
+        }
+        Relationships: []
+      }
+      companies: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      deadlines: {
+        Row: {
+          case_id: string
+          created_at: string
+          due_at: string
+          id: string
+          status: Database["public"]["Enums"]["deadline_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          due_at: string
+          id?: string
+          status?: Database["public"]["Enums"]["deadline_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          due_at?: string
+          id?: string
+          status?: Database["public"]["Enums"]["deadline_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deadlines_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      download_logs: {
+        Row: {
+          downloaded_at: string | null
+          evidence_item_id: string
+          id: string
+          user_name: string | null
+          watermarked: boolean | null
+        }
+        Insert: {
+          downloaded_at?: string | null
+          evidence_item_id: string
+          id?: string
+          user_name?: string | null
+          watermarked?: boolean | null
+        }
+        Update: {
+          downloaded_at?: string | null
+          evidence_item_id?: string
+          id?: string
+          user_name?: string | null
+          watermarked?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "download_logs_evidence_item_id_fkey"
+            columns: ["evidence_item_id"]
+            isOneToOne: false
+            referencedRelation: "evidence_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employees: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          id: string
+          name: string
+          role: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          role?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employees_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      evidence_items: {
+        Row: {
+          case_id: string
+          category: Database["public"]["Enums"]["evidence_category"]
+          created_at: string
+          fact_date: string | null
+          file_size: string | null
+          filename: string
+          id: string
+          origin: Database["public"]["Enums"]["evidence_origin"]
+          request_id: string
+          sha256: string | null
+          status: Database["public"]["Enums"]["evidence_item_status"]
+          uploaded_at: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          case_id: string
+          category?: Database["public"]["Enums"]["evidence_category"]
+          created_at?: string
+          fact_date?: string | null
+          file_size?: string | null
+          filename: string
+          id?: string
+          origin?: Database["public"]["Enums"]["evidence_origin"]
+          request_id: string
+          sha256?: string | null
+          status?: Database["public"]["Enums"]["evidence_item_status"]
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          case_id?: string
+          category?: Database["public"]["Enums"]["evidence_category"]
+          created_at?: string
+          fact_date?: string | null
+          file_size?: string | null
+          filename?: string
+          id?: string
+          origin?: Database["public"]["Enums"]["evidence_origin"]
+          request_id?: string
+          sha256?: string | null
+          status?: Database["public"]["Enums"]["evidence_item_status"]
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evidence_items_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evidence_items_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "evidence_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      evidence_requests: {
+        Row: {
+          assigned_areas: string[] | null
+          assigned_users: string[] | null
+          case_id: string
+          created_at: string
+          description: string | null
+          due_at: string | null
+          id: string
+          sla_hours: number | null
+          status: Database["public"]["Enums"]["evidence_request_status"]
+          theme: string | null
+        }
+        Insert: {
+          assigned_areas?: string[] | null
+          assigned_users?: string[] | null
+          case_id: string
+          created_at?: string
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          sla_hours?: number | null
+          status?: Database["public"]["Enums"]["evidence_request_status"]
+          theme?: string | null
+        }
+        Update: {
+          assigned_areas?: string[] | null
+          assigned_users?: string[] | null
+          case_id?: string
+          created_at?: string
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          sla_hours?: number | null
+          status?: Database["public"]["Enums"]["evidence_request_status"]
+          theme?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evidence_requests_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hearings: {
+        Row: {
+          case_id: string
+          court: string | null
+          created_at: string
+          date: string
+          id: string
+          status: Database["public"]["Enums"]["hearing_status"]
+          time: string | null
+          type: string | null
+          updated_at: string
+        }
+        Insert: {
+          case_id: string
+          court?: string | null
+          created_at?: string
+          date: string
+          id?: string
+          status?: Database["public"]["Enums"]["hearing_status"]
+          time?: string | null
+          type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          case_id?: string
+          court?: string | null
+          created_at?: string
+          date?: string
+          id?: string
+          status?: Database["public"]["Enums"]["hearing_status"]
+          time?: string | null
+          type?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hearings_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          email: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      responsaveis: {
+        Row: {
+          active: boolean | null
+          alerts_audiencias: boolean | null
+          alerts_email: boolean | null
+          alerts_prazos: boolean | null
+          alerts_tarefas: boolean | null
+          alerts_whatsapp: boolean | null
+          company_id: string | null
+          company_id_all: boolean | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          phone: string | null
+          role: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          alerts_audiencias?: boolean | null
+          alerts_email?: boolean | null
+          alerts_prazos?: boolean | null
+          alerts_tarefas?: boolean | null
+          alerts_whatsapp?: boolean | null
+          company_id?: string | null
+          company_id_all?: boolean | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          role?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          alerts_audiencias?: boolean | null
+          alerts_email?: boolean | null
+          alerts_prazos?: boolean | null
+          alerts_tarefas?: boolean | null
+          alerts_whatsapp?: boolean | null
+          company_id?: string | null
+          company_id_all?: boolean | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "responsaveis_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          all_day: boolean | null
+          assignees: string[] | null
+          case_id: string | null
+          created_at: string
+          due_at: string | null
+          id: string
+          priority: Database["public"]["Enums"]["priority_level"]
+          show_in_calendar: boolean | null
+          status: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          all_day?: boolean | null
+          assignees?: string[] | null
+          case_id?: string | null
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          priority?: Database["public"]["Enums"]["priority_level"]
+          show_in_calendar?: boolean | null
+          status?: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          all_day?: boolean | null
+          assignees?: string[] | null
+          case_id?: string | null
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          priority?: Database["public"]["Enums"]["priority_level"]
+          show_in_calendar?: boolean | null
+          status?: Database["public"]["Enums"]["task_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      timeline_events: {
+        Row: {
+          case_id: string
+          created_at: string
+          description: string | null
+          id: string
+          metadata: Json | null
+          title: string
+          type: Database["public"]["Enums"]["timeline_event_type"]
+          user_name: string | null
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          title: string
+          type: Database["public"]["Enums"]["timeline_event_type"]
+          user_name?: string | null
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          title?: string
+          type?: Database["public"]["Enums"]["timeline_event_type"]
+          user_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timeline_events_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_company_id: { Args: { _user_id: string }; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      user_has_all_company_access: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      alert_severity: "info" | "atencao" | "urgente"
+      alert_type: "prazo" | "audiencia" | "tarefa" | "prova" | "publicacao"
+      app_role:
+        | "admin"
+        | "responsavel_juridico_interno"
+        | "dp"
+        | "rh"
+        | "vendas"
+        | "logistica"
+        | "frota"
+        | "advogado_externo"
+      case_status:
+        | "novo"
+        | "em_andamento"
+        | "audiencia_marcada"
+        | "sentenca"
+        | "recurso"
+        | "encerrado"
+      checklist_type: "pre_audiencia" | "pos_audiencia" | "provas_por_tema"
+      confidentiality_level: "normal" | "restrito" | "ultra_restrito"
+      deadline_status: "pendente" | "cumprido" | "vencido"
+      evidence_category:
+        | "ponto_eletronico"
+        | "escalas"
+        | "treinamento"
+        | "conversas_oficiais"
+        | "cftv_camera"
+        | "documentos_assinados"
+        | "emails"
+        | "atestados_justificativas"
+        | "epi_advertencias"
+        | "catraca_controle_acesso"
+        | "logs_servidor"
+        | "logs_sistemas"
+        | "outros"
+      evidence_item_status: "pendente" | "recebido" | "validado" | "recusado"
+      evidence_origin:
+        | "email"
+        | "whatsapp_corporativo"
+        | "drive"
+        | "sistema_ponto"
+        | "sistema_catraca"
+        | "servidor"
+        | "outro"
+      evidence_request_status:
+        | "aberta"
+        | "parcialmente_atendida"
+        | "atendida"
+        | "atrasada"
+      hearing_status: "agendada" | "realizada" | "adiada" | "cancelada"
+      priority_level: "baixa" | "media" | "alta" | "critica"
+      responsible_sector: "dp" | "rh" | "frota" | "vendas" | "logistica" | "ti"
+      task_status: "aberta" | "em_andamento" | "aguardando" | "concluida"
+      timeline_event_type:
+        | "processo_criado"
+        | "status_alterado"
+        | "prazo_criado"
+        | "prazo_cumprido"
+        | "audiencia_agendada"
+        | "audiencia_realizada"
+        | "prova_anexada"
+        | "tarefa_criada"
+        | "tarefa_concluida"
+        | "comentario"
+        | "checklist_aplicado"
+        | "responsavel_alterado"
+        | "campo_editado"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +929,80 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      alert_severity: ["info", "atencao", "urgente"],
+      alert_type: ["prazo", "audiencia", "tarefa", "prova", "publicacao"],
+      app_role: [
+        "admin",
+        "responsavel_juridico_interno",
+        "dp",
+        "rh",
+        "vendas",
+        "logistica",
+        "frota",
+        "advogado_externo",
+      ],
+      case_status: [
+        "novo",
+        "em_andamento",
+        "audiencia_marcada",
+        "sentenca",
+        "recurso",
+        "encerrado",
+      ],
+      checklist_type: ["pre_audiencia", "pos_audiencia", "provas_por_tema"],
+      confidentiality_level: ["normal", "restrito", "ultra_restrito"],
+      deadline_status: ["pendente", "cumprido", "vencido"],
+      evidence_category: [
+        "ponto_eletronico",
+        "escalas",
+        "treinamento",
+        "conversas_oficiais",
+        "cftv_camera",
+        "documentos_assinados",
+        "emails",
+        "atestados_justificativas",
+        "epi_advertencias",
+        "catraca_controle_acesso",
+        "logs_servidor",
+        "logs_sistemas",
+        "outros",
+      ],
+      evidence_item_status: ["pendente", "recebido", "validado", "recusado"],
+      evidence_origin: [
+        "email",
+        "whatsapp_corporativo",
+        "drive",
+        "sistema_ponto",
+        "sistema_catraca",
+        "servidor",
+        "outro",
+      ],
+      evidence_request_status: [
+        "aberta",
+        "parcialmente_atendida",
+        "atendida",
+        "atrasada",
+      ],
+      hearing_status: ["agendada", "realizada", "adiada", "cancelada"],
+      priority_level: ["baixa", "media", "alta", "critica"],
+      responsible_sector: ["dp", "rh", "frota", "vendas", "logistica", "ti"],
+      task_status: ["aberta", "em_andamento", "aguardando", "concluida"],
+      timeline_event_type: [
+        "processo_criado",
+        "status_alterado",
+        "prazo_criado",
+        "prazo_cumprido",
+        "audiencia_agendada",
+        "audiencia_realizada",
+        "prova_anexada",
+        "tarefa_criada",
+        "tarefa_concluida",
+        "comentario",
+        "checklist_aplicado",
+        "responsavel_alterado",
+        "campo_editado",
+      ],
+    },
   },
 } as const
