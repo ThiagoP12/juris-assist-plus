@@ -28,6 +28,7 @@ import DocumentosProcessoTab from "@/components/processo/DocumentosProcessoTab";
 import NovaAudienciaDialog from "@/components/processo/NovaAudienciaDialog";
 import NovoPrazoDialog from "@/components/processo/NovoPrazoDialog";
 import PacoteAudienciaDialog from "@/components/processo/PacoteAudienciaDialog";
+import TasksTabContent from "@/components/processo/TasksTabContent";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -45,7 +46,7 @@ const statusColors: Record<CaseStatus, string> = {
 export default function ProcessoDetalhe() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { hasRole } = useAuth();
+  const { hasRole, user } = useAuth();
   const { addNotification } = useNotificationsContext();
   const queryClient = useQueryClient();
 
@@ -473,40 +474,13 @@ export default function ProcessoDetalhe() {
         </TabsContent>
 
         <TabsContent value="tarefas">
-          <div className="space-y-3">
-            {!isEncerrado ? (
-              <div className="flex justify-end">
-                <Button size="sm" variant="outline" className="gap-1.5 text-xs" asChild>
-                  <Link to="/tarefas/nova"><Plus className="h-3.5 w-3.5" /> Nova Tarefa</Link>
-                </Button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 px-4 py-2.5">
-                <Lock className="h-3.5 w-3.5 text-muted-foreground/60" />
-                <p className="text-xs text-muted-foreground/70">Criação de tarefas bloqueada para processos encerrados.</p>
-              </div>
-            )}
-            {tasks.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma tarefa vinculada.</p>}
-            {tasks.map((t) => (
-              <div key={t.id} className={cn("flex items-center gap-3 rounded-lg border bg-card p-4", isEncerrado && "opacity-75")}>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">{t.title}</p>
-                  <div className="mt-1 flex flex-wrap gap-2">
-                    <Badge variant="outline" className="text-[10px]">{taskStatusLabels[t.status as keyof typeof taskStatusLabels] ?? t.status}</Badge>
-                    <Badge variant="secondary" className="text-[10px]">{priorityLabels[t.priority as keyof typeof priorityLabels] ?? t.priority}</Badge>
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">{(t.assignees ?? []).join(", ")}</p>
-                </div>
-                {!isEncerrado && (
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({ title: "Tarefa atualizada com sucesso." })}>
-                      <Edit className="h-3 w-3" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+          <TasksTabContent
+            tasks={tasks}
+            isEncerrado={isEncerrado}
+            userRole={user?.role}
+            currentUserName={user?.name ?? ""}
+            onTaskUpdated={() => queryClient.invalidateQueries({ queryKey: ["case-tasks", id] })}
+          />
         </TabsContent>
 
         <TabsContent value="provas">
