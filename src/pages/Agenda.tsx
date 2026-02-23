@@ -2,8 +2,8 @@ import { useState, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
 import {
   ChevronLeft, ChevronRight, CalendarDays, Clock, CheckCircle2,
-  Filter, Download, X, ExternalLink, CalendarCheck, Gavel, AlertTriangle,
-  ListTodo, Calendar as CalendarIcon, Pencil, Check,
+  Filter, Download, AlertTriangle, ListTodo, Calendar as CalendarIcon,
+  CalendarCheck, Gavel,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,679 +11,20 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import {
-  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
-  mockHearings, mockDeadlines, mockTasks, mockCases, mockCompanies,
-} from "@/data/mock";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { mockHearings, mockDeadlines, mockTasks, mockCases, mockCompanies } from "@/data/mock";
 import { useAuth } from "@/contexts/AuthContext";
-import type { AppRole } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 
+import {
+  MONTHS, WEEKDAYS_FULL, TODAY,
+  type ViewType, type EventFilterType, type AssignmentFilter, type CalendarEvent,
+  formatDateStr, getEventsForDate, getWeekDays, isSameDay, downloadICS,
+} from "@/components/agenda/agendaHelpers";
+import { EventModal } from "@/components/agenda/AgendaEventModal";
+import { StatMini, MonthView, WeekView, DayView, YearView } from "@/components/agenda/AgendaViews";
 
-
-// ── Constants ──
-const MONTHS = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-const WEEKDAYS = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
-const WEEKDAYS_FULL = ["Domingo","Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado"];
-const HOURS = Array.from({ length: 17 }, (_, i) => i + 6);
-const TODAY = new Date();
-
-type ViewType = "dia" | "semana" | "mes" | "ano";
-type EventFilterType = "todos" | "audiencia" | "prazo" | "tarefa";
-type AssignmentFilter = "todos" | "minhas";
-// CURRENT_USER is now derived from useAuth() inside the component
-
-/** Retorna true se o caso é visível para o usuário com o papel/nome dados */
-function canUserSeeCase(caso: { responsible: string; lawyer: string; responsible_sector?: string } | undefined, userName: string, userRole: AppRole | undefined): boolean {
-  if (!caso) return false;
-  // Admin e Diretor Jurídico veem tudo
-  if (!userRole || userRole === "admin" || userRole === "responsavel_juridico_interno") return true;
-  // Advogado externo: apenas processos onde é o advogado
-  if (userRole === "advogado_externo") return caso.lawyer === userName;
-  // DP: processos onde é o responsável gestor (campo responsible = nome do usuário DP)
-  if (userRole === "dp") return caso.responsible === userName || caso.responsible_sector === "dp";
-  // RH: processos onde é o responsável gestor ou setor responsável é RH
-  if (userRole === "rh") return caso.responsible === userName || caso.responsible_sector === "rh";
-  // Vendas: apenas processos do setor vendas
-  if (userRole === "vendas") return caso.responsible_sector === "vendas";
-  // Logística: apenas processos do setor logistica
-  if (userRole === "logistica") return caso.responsible_sector === "logistica";
-  // Frota: apenas processos do setor frota
-  if (userRole === "frota") return caso.responsible_sector === "frota";
-  return false;
-}
-
-interface CalendarEvent {
-  type: "audiencia" | "prazo" | "tarefa";
-  title: string;
-  time?: string;
-  hour?: number;
-  date?: string;
-  employee?: string;
-  caseId?: string;
-  caseNumber?: string;
-  companyId?: string;
-  detail?: string;
-  assignees?: string[];
-}
-
-// ── Helpers ──
-function formatDateStr(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-}
-
-function getEventsForDate(
-  date: Date,
-  typeFilter: EventFilterType,
-  assignmentFilter: AssignmentFilter,
-  companyFilter: string,
-  currentUser?: string,
-  userRole?: AppRole
-): CalendarEvent[] {
-  const dateStr = formatDateStr(date);
-  const items: CalendarEvent[] = [];
-  const user = currentUser ?? "Thiago";
-
-  if (typeFilter === "todos" || typeFilter === "audiencia") {
-    mockHearings.forEach((h) => {
-      if (h.date !== dateStr) return;
-      const caso = mockCases.find((c) => c.id === h.case_id);
-      if (caso?.status === "encerrado") return;
-      if (!canUserSeeCase(caso, user, userRole)) return;
-      if (companyFilter !== "todas" && caso?.company_id !== companyFilter) return;
-      if (assignmentFilter === "minhas" && caso?.responsible !== user) return;
-      items.push({
-        type: "audiencia", title: h.type, time: h.time, date: h.date,
-        hour: parseInt(h.time.split(":")[0]), employee: h.employee,
-        caseId: h.case_id, caseNumber: h.case_number,
-        companyId: caso?.company_id, detail: h.court,
-      });
-    });
-  }
-
-  if (typeFilter === "todos" || typeFilter === "prazo") {
-    mockDeadlines.forEach((d) => {
-      if (d.due_at !== dateStr) return;
-      if (d.status === "cumprido") return;
-      const caso = mockCases.find((c) => c.id === d.case_id);
-      if (!canUserSeeCase(caso, user, userRole)) return;
-      if (companyFilter !== "todas" && caso?.company_id !== companyFilter) return;
-      if (assignmentFilter === "minhas" && caso?.responsible !== user) return;
-      items.push({
-        type: "prazo", title: d.title, date: d.due_at, employee: d.employee,
-        caseId: d.case_id, caseNumber: d.case_number, companyId: caso?.company_id,
-      });
-    });
-  }
-
-  if (typeFilter === "todos" || typeFilter === "tarefa") {
-    mockTasks.filter((t) => t.show_in_calendar).forEach((t) => {
-      if (!t.due_at.startsWith(dateStr)) return;
-      if (t.status === "concluida") return;
-      const caso = t.case_id ? mockCases.find((c) => c.id === t.case_id) : undefined;
-      // Para tarefas: mostrar se a tarefa está atribuída ao usuário OU se o caso é visível
-      const caseVisible = caso ? canUserSeeCase(caso, user, userRole) : true;
-      const isAssignee = t.assignees.includes(user);
-      // Usuários de setor (vendas/logistica/frota) só veem tarefas onde são assignees
-      const sectorOnly = userRole === "vendas" || userRole === "logistica" || userRole === "frota";
-      if (sectorOnly && !isAssignee) return;
-      if (!sectorOnly && !caseVisible && !isAssignee) return;
-      if (companyFilter !== "todas" && caso && caso.company_id !== companyFilter) return;
-      if (assignmentFilter === "minhas" && !t.assignees.includes(user)) return;
-      const time = t.due_at.split("T")[1]?.slice(0,5);
-      items.push({
-        type: "tarefa", title: t.title, time, date: dateStr,
-        hour: time ? parseInt(time.split(":")[0]) : undefined,
-        employee: t.employee, caseId: t.case_id, caseNumber: t.case_number,
-        companyId: caso?.company_id, assignees: t.assignees,
-      });
-    });
-  }
-
-  return items;
-}
-
-function getWeekDays(date: Date): Date[] {
-  const d = new Date(date);
-  d.setDate(d.getDate() - d.getDay());
-  return Array.from({ length: 7 }, (_, i) => { const dd = new Date(d); dd.setDate(d.getDate()+i); return dd; });
-}
-
-function isSameDay(a: Date, b: Date) {
-  return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
-}
-
-function eventColor(type: string) {
-  if (type === "audiencia") return "bg-primary/15 text-primary border-l-2 border-primary";
-  if (type === "prazo") return "bg-warning/15 text-warning border-l-2 border-warning";
-  return "bg-success/15 text-success border-l-2 border-success";
-}
-function allDayColor(type: string) {
-  if (type === "prazo") return "bg-warning/20 text-warning";
-  return "bg-muted text-muted-foreground";
-}
-
-function eventTypeLabel(type: string) {
-  return type === "audiencia" ? "Audiência" : type === "prazo" ? "Prazo" : "Tarefa";
-}
-
-function eventTypeIcon(type: string) {
-  if (type === "audiencia") return <Gavel className="h-3.5 w-3.5" />;
-  if (type === "prazo") return <Clock className="h-3.5 w-3.5" />;
-  return <ListTodo className="h-3.5 w-3.5" />;
-}
-
-// ── ICS Export ──
-function generateICS(events: CalendarEvent[], dateStr: string): string {
-  const lines = ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//SIAG//PT","CALSCALE:GREGORIAN"];
-  events.forEach((e, i) => {
-    const d = dateStr.replace(/-/g,"");
-    const t = e.time ? e.time.replace(":","")+"00" : "000000";
-    lines.push("BEGIN:VEVENT",`DTSTART:${d}T${t}`,`SUMMARY:${e.title}`,
-      `DESCRIPTION:${e.employee || ""}`,`UID:siag-${i}-${d}@siag`,`END:VEVENT`);
-  });
-  lines.push("END:VCALENDAR");
-  return lines.join("\r\n");
-}
-
-function downloadICS(events: CalendarEvent[], dateStr: string) {
-  const blob = new Blob([generateICS(events, dateStr)], { type: "text/calendar" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = `agenda-siag-${dateStr}.ics`;
-  a.click(); URL.revokeObjectURL(url);
-}
-
-// ── Stat Mini Card ──
-function StatMini({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: number; color: string }) {
-  return (
-    <div className={cn("flex items-center gap-2 rounded-lg border px-3 py-2 shadow-soft", color)}>
-      <div className="flex h-7 w-7 items-center justify-center rounded-md bg-background/60">{icon}</div>
-      <div>
-        <p className="text-lg font-extrabold leading-none">{value}</p>
-        <p className="text-[10px] font-medium opacity-70">{label}</p>
-      </div>
-    </div>
-  );
-}
-
-// ── Event Detail Modal ──
-function EventModal({ event, onClose, onSaveTime }: {
-  event: CalendarEvent;
-  onClose: () => void;
-  onSaveTime: (eventKey: string, newTime: string) => void;
-}) {
-  const [editingTime, setEditingTime] = useState(false);
-  const [editHour, setEditHour] = useState(event.time ? event.time.split(":")[0] : "08");
-  const [editMin, setEditMin] = useState(event.time ? event.time.split(":")[1] : "00");
-
-  const eventKey = `${event.type}::${event.title}::${event.date}`;
-
-  const handleSave = () => {
-    const newTime = `${editHour.padStart(2,"0")}:${editMin.padStart(2,"0")}`;
-    onSaveTime(eventKey, newTime);
-    setEditingTime(false);
-    toast({ title: "Horário atualizado", description: `Novo horário: ${newTime}` });
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-sm rounded-2xl border bg-card p-5 shadow-elevated animate-in fade-in slide-in-from-bottom-4 duration-200" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start justify-between mb-3">
-          <Badge className={cn(
-            "text-[10px] gap-1 border-0",
-            event.type === "audiencia" ? "bg-primary/15 text-primary" :
-            event.type === "prazo" ? "bg-warning/15 text-warning" :
-            "bg-success/15 text-success"
-          )}>
-            {eventTypeIcon(event.type)}
-            {eventTypeLabel(event.type)}
-          </Badge>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <h3 className="text-sm font-bold mb-3">{event.title}</h3>
-        <div className="space-y-1.5">
-          {/* Horário editável */}
-          <div className="flex items-center gap-1.5">
-            <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
-            {editingTime ? (
-              <div className="flex items-center gap-1">
-                <select
-                  value={editHour}
-                  onChange={(e) => setEditHour(e.target.value)}
-                  className="h-7 w-14 rounded-md border bg-background px-1.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring"
-                >
-                  {Array.from({ length: 24 }, (_, i) => String(i).padStart(2,"0")).map((h) => (
-                    <option key={h} value={h}>{h}</option>
-                  ))}
-                </select>
-                <span className="text-xs font-bold text-muted-foreground">:</span>
-                <select
-                  value={editMin}
-                  onChange={(e) => setEditMin(e.target.value)}
-                  className="h-7 w-14 rounded-md border bg-background px-1.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring"
-                >
-                  {["00","05","10","15","20","25","30","35","40","45","50","55"].map((m) => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-                <button
-                  onClick={handleSave}
-                  className="ml-1 flex h-6 w-6 items-center justify-center rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
-                >
-                  <Check className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => setEditingTime(false)}
-                  className="flex h-6 w-6 items-center justify-center rounded-md border text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1.5 group/time">
-                <span className="text-xs text-muted-foreground">{event.time ?? "Sem horário"}</span>
-                <button
-                  onClick={() => setEditingTime(true)}
-                  className="opacity-0 group-hover/time:opacity-100 transition-opacity flex h-5 w-5 items-center justify-center rounded hover:bg-accent"
-                >
-                  <Pencil className="h-3 w-3 text-muted-foreground" />
-                </button>
-              </div>
-            )}
-          </div>
-          {event.employee && <p className="text-xs text-muted-foreground flex items-center gap-1.5"><CalendarDays className="h-3 w-3" /> {event.employee}</p>}
-          {event.detail && <p className="text-xs text-muted-foreground flex items-center gap-1.5"><Gavel className="h-3 w-3" /> {event.detail}</p>}
-          {event.caseNumber && <p className="text-xs text-muted-foreground font-mono">{event.caseNumber}</p>}
-          {event.assignees && <p className="text-xs text-muted-foreground">👥 {event.assignees.join(", ")}</p>}
-        </div>
-        {event.caseId && (
-          <Button asChild size="sm" className="w-full mt-4 gap-2 rounded-xl" style={{ background: "var(--gradient-primary)" }}>
-            <Link to={`/processos/${event.caseId}`}>
-              <ExternalLink className="h-3.5 w-3.5" /> Ver Processo
-            </Link>
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Side Panel ──
-function SidePanel({ date, events, onEventClick }: { date: Date; events: CalendarEvent[]; onEventClick: (e: CalendarEvent) => void }) {
-  const dayLabel = `${date.getDate()} de ${MONTHS[date.getMonth()]}`;
-  const weekday = WEEKDAYS_FULL[date.getDay()];
-  const isCurrentDay = isSameDay(date, TODAY);
-
-  const audiencias = events.filter((e) => e.type === "audiencia");
-  const prazos = events.filter((e) => e.type === "prazo");
-  const tarefas = events.filter((e) => e.type === "tarefa");
-
-  return (
-    <div className="w-full lg:w-[280px] shrink-0 rounded-xl border bg-card shadow-soft overflow-hidden">
-      {/* Header */}
-      <div className={cn("p-4 border-b", isCurrentDay ? "bg-primary/5" : "bg-muted/30")}>
-        <div className="flex items-center gap-2">
-          {isCurrentDay && <Badge className="text-[9px] bg-primary text-primary-foreground border-0">Hoje</Badge>}
-          <div>
-            <p className="text-xs text-muted-foreground font-medium">{weekday}</p>
-            <p className="text-lg font-bold">{dayLabel}</p>
-          </div>
-        </div>
-        {events.length === 0 && (
-          <p className="text-xs text-muted-foreground/60 mt-2">Nenhum evento neste dia</p>
-        )}
-      </div>
-
-      {/* Events list */}
-      <div className="max-h-[500px] overflow-y-auto scrollbar-thin p-2 space-y-1.5">
-        {/* Audiências */}
-        {audiencias.length > 0 && (
-          <div className="mb-2">
-            <p className="text-[10px] font-bold uppercase text-muted-foreground px-2 mb-1 flex items-center gap-1">
-              <Gavel className="h-3 w-3 text-primary" /> Audiências ({audiencias.length})
-            </p>
-            {audiencias.map((e, i) => (
-              <button key={i} onClick={() => onEventClick(e)}
-                className="w-full text-left rounded-lg p-2.5 transition-colors hover:bg-primary/5 border-l-2 border-primary mb-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-foreground">{e.title}</span>
-                  {e.time && <Badge variant="outline" className="text-[9px] font-mono">{e.time}</Badge>}
-                </div>
-                {e.employee && <p className="text-[10px] text-muted-foreground mt-0.5">{e.employee}</p>}
-                {e.detail && <p className="text-[10px] text-muted-foreground truncate">{e.detail}</p>}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Prazos */}
-        {prazos.length > 0 && (
-          <div className="mb-2">
-            <p className="text-[10px] font-bold uppercase text-muted-foreground px-2 mb-1 flex items-center gap-1">
-              <Clock className="h-3 w-3 text-warning" /> Prazos ({prazos.length})
-            </p>
-            {prazos.map((e, i) => (
-              <button key={i} onClick={() => onEventClick(e)}
-                className="w-full text-left rounded-lg p-2.5 transition-colors hover:bg-warning/5 border-l-2 border-warning mb-1">
-                <span className="text-xs font-bold text-foreground">{e.title}</span>
-                {e.employee && <p className="text-[10px] text-muted-foreground mt-0.5">{e.employee}</p>}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Tarefas */}
-        {tarefas.length > 0 && (
-          <div>
-            <p className="text-[10px] font-bold uppercase text-muted-foreground px-2 mb-1 flex items-center gap-1">
-              <ListTodo className="h-3 w-3 text-success" /> Tarefas ({tarefas.length})
-            </p>
-            {tarefas.map((e, i) => (
-              <button key={i} onClick={() => onEventClick(e)}
-                className="w-full text-left rounded-lg p-2.5 transition-colors hover:bg-success/5 border-l-2 border-success mb-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-foreground truncate">{e.title}</span>
-                  {e.time && <Badge variant="outline" className="text-[9px] font-mono">{e.time}</Badge>}
-                </div>
-                {e.assignees && <p className="text-[10px] text-muted-foreground mt-0.5">{e.assignees.join(", ")}</p>}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Month View ──
-function MonthView({ selectedDate, onDayClick, typeFilter, assignmentFilter, companyFilter, currentUser, userRole }: {
-  selectedDate: Date; onDayClick: (d: Date) => void;
-  typeFilter: EventFilterType; assignmentFilter: AssignmentFilter; companyFilter: string; currentUser?: string; userRole?: AppRole;
-}) {
-  const year = selectedDate.getFullYear();
-  const month = selectedDate.getMonth();
-  const daysInMonth = new Date(year, month+1, 0).getDate();
-  const firstDay = new Date(year, month, 1).getDay();
-
-  return (
-    <div className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border bg-border shadow-soft">
-      {WEEKDAYS.map((d) => (
-        <div key={d} className="bg-muted/50 p-2 text-center text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{d}</div>
-      ))}
-      {Array.from({ length: firstDay }).map((_, i) => (
-        <div key={`e-${i}`} className="min-h-[80px] bg-card/50 p-1 md:min-h-[100px]" />
-      ))}
-      {Array.from({ length: daysInMonth }).map((_, i) => {
-        const day = i + 1;
-        const date = new Date(year, month, day);
-        const events = getEventsForDate(date, typeFilter, assignmentFilter, companyFilter, currentUser, userRole);
-        const isToday = isSameDay(date, TODAY);
-        const isSelected = isSameDay(date, selectedDate);
-        return (
-          <div key={day} onClick={() => onDayClick(date)}
-            className={cn(
-              "min-h-[80px] cursor-pointer bg-card p-1.5 transition-all hover:bg-accent/20 md:min-h-[100px]",
-              isToday && "ring-2 ring-inset ring-primary/60",
-              isSelected && !isToday && "bg-accent/10",
-            )}>
-            <span className={cn(
-              "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold transition-colors",
-              isToday && "bg-primary text-primary-foreground",
-              isSelected && !isToday && "bg-accent text-accent-foreground",
-            )}>{day}</span>
-            <div className="mt-1 space-y-0.5">
-              {events.slice(0,2).map((e, idx) => (
-                <div key={idx} className={cn(
-                  "truncate rounded px-1 py-0.5 text-[10px] font-medium",
-                  e.type==="audiencia" ? "bg-primary/10 text-primary" :
-                  e.type==="prazo" ? "bg-warning/15 text-warning" : "bg-success/10 text-success"
-                )}>{e.time ? `${e.time} ` : ""}{e.title.slice(0,20)}</div>
-              ))}
-              {events.length > 2 && (
-                <span className="block text-[9px] text-muted-foreground font-medium px-1">+{events.length-2} mais</span>
-              )}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ── Time Grid ──
-function TimeGrid({ columns, renderAllDay, renderEvent }: {
-  columns: Date[];
-  renderAllDay: (date: Date) => React.ReactNode;
-  renderEvent: (date: Date, hour: number) => React.ReactNode;
-}) {
-  const colTemplate = `48px repeat(${columns.length}, minmax(${columns.length>1?'44px':'1fr'}, 1fr))`;
-  return (
-    <div className="overflow-x-auto rounded-xl border bg-card shadow-soft">
-      {/* All-day row */}
-      <div className="grid border-b bg-muted/20" style={{ gridTemplateColumns: colTemplate }}>
-        <div className="border-r p-2 text-[10px] font-semibold text-muted-foreground">Dia todo</div>
-        {columns.map((date, i) => (
-          <div key={i} className="min-h-[32px] border-r p-1 last:border-r-0">{renderAllDay(date)}</div>
-        ))}
-      </div>
-      {/* Column headers */}
-      <div className="grid border-b bg-muted/40" style={{ gridTemplateColumns: colTemplate }}>
-        <div className="border-r p-2" />
-        {columns.map((date, i) => {
-          const isToday = isSameDay(date, TODAY);
-          return (
-            <div key={i} className="border-r p-2 text-center last:border-r-0">
-              <div className="text-[10px] font-semibold text-muted-foreground uppercase">{WEEKDAYS[date.getDay()]}</div>
-              <div className={cn(
-                "mx-auto mt-0.5 flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold",
-                isToday && "bg-primary text-primary-foreground shadow-glow-primary"
-              )}>{date.getDate()}</div>
-            </div>
-          );
-        })}
-      </div>
-      {/* Hourly rows */}
-      <div className="max-h-[600px] overflow-y-auto scrollbar-thin">
-        {HOURS.map((hour) => (
-          <div key={hour} className="grid border-b last:border-b-0 hover:bg-accent/5 transition-colors" style={{ gridTemplateColumns: colTemplate }}>
-            <div className="border-r p-1 pr-1.5 text-right text-[10px] text-muted-foreground font-medium">{String(hour).padStart(2,"0")}:00</div>
-            {columns.map((date, i) => (
-              <div key={i} className="relative min-h-[52px] border-r p-0.5 last:border-r-0">{renderEvent(date, hour)}</div>
-            ))}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function WeekView({ selectedDate, typeFilter, assignmentFilter, companyFilter, onEventClick, currentUser, userRole }: {
-  selectedDate: Date; typeFilter: EventFilterType; assignmentFilter: AssignmentFilter; companyFilter: string; onEventClick: (e: CalendarEvent) => void; currentUser?: string; userRole?: AppRole;
-}) {
-  const weekDays = useMemo(() => getWeekDays(selectedDate), [selectedDate]);
-  return (
-    <TimeGrid columns={weekDays}
-      renderAllDay={(date) => {
-        const events = getEventsForDate(date, typeFilter, assignmentFilter, companyFilter, currentUser, userRole).filter((e) => e.type==="prazo");
-        return events.map((e, i) => (
-          <div key={i} onClick={() => onEventClick(e)} className={`mb-0.5 truncate rounded px-1 py-0.5 text-[9px] font-medium cursor-pointer hover:opacity-80 transition-opacity ${allDayColor(e.type)}`}>
-            {e.title.slice(0,15)}
-          </div>
-        ));
-      }}
-      renderEvent={(date, hour) => {
-        const events = getEventsForDate(date, typeFilter, assignmentFilter, companyFilter, currentUser, userRole).filter((e) => e.hour===hour);
-        return events.map((e, i) => (
-          <div key={i} onClick={() => onEventClick(e)} className={`mb-0.5 rounded px-1.5 py-1 text-[9px] leading-tight cursor-pointer hover:opacity-80 transition-opacity ${eventColor(e.type)}`}>
-            <div className="font-bold">{e.time}</div>
-            <div className="truncate">{e.title.slice(0,18)}</div>
-            {e.employee && <div className="truncate text-[8px] opacity-75">{e.employee.split(" ").slice(0,2).join(" ")}</div>}
-          </div>
-        ));
-      }}
-    />
-  );
-}
-
-function DayView({ selectedDate, typeFilter, assignmentFilter, companyFilter, onEventClick, currentUser, userRole }: {
-  selectedDate: Date; typeFilter: EventFilterType; assignmentFilter: AssignmentFilter; companyFilter: string;
-  onEventClick: (e: CalendarEvent) => void; currentUser?: string; userRole?: AppRole;
-}) {
-  return (
-    <TimeGrid columns={[selectedDate]}
-      renderAllDay={(date) => {
-        const events = getEventsForDate(date, typeFilter, assignmentFilter, companyFilter, currentUser, userRole).filter((e) => e.type==="prazo");
-        return events.map((e, i) => (
-          <div key={i} onClick={() => onEventClick(e)} className={`mb-0.5 rounded px-2 py-1 text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${allDayColor(e.type)}`}>
-            {e.title} {e.employee && <span className="opacity-75">· {e.employee}</span>}
-          </div>
-        ));
-      }}
-      renderEvent={(date, hour) => {
-        const events = getEventsForDate(date, typeFilter, assignmentFilter, companyFilter, currentUser, userRole).filter((e) => e.hour===hour);
-        return events.map((e, i) => (
-          <div key={i} onClick={() => onEventClick(e)} className={`mb-1 rounded px-2 py-1.5 text-xs leading-tight cursor-pointer hover:opacity-80 transition-opacity ${eventColor(e.type)}`}>
-            <div className="font-bold">{e.time} – {eventTypeLabel(e.type)}</div>
-            <div>{e.title}</div>
-            {e.employee && <div className="mt-0.5 text-[11px] opacity-75">{e.employee}</div>}
-          </div>
-        ));
-      }}
-    />
-  );
-}
-
-// ── Year View ──
-function YearView({ selectedDate, onMonthClick, typeFilter, assignmentFilter, companyFilter, currentUser, userRole }: {
-  selectedDate: Date; onMonthClick: (d: Date) => void;
-  typeFilter: EventFilterType; assignmentFilter: AssignmentFilter; companyFilter: string; currentUser?: string; userRole?: AppRole;
-}) {
-  const year = selectedDate.getFullYear();
-
-  return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
-      {MONTHS.map((monthName, monthIdx) => {
-        const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
-        const firstDayOfWeek = new Date(year, monthIdx, 1).getDay();
-
-        // Build event map: day -> types
-        const eventMap: Record<number, Set<string>> = {};
-        let audiencias = 0, prazos = 0, tarefas = 0;
-        for (let d = 1; d <= daysInMonth; d++) {
-          const date = new Date(year, monthIdx, d);
-          const evts = getEventsForDate(date, typeFilter, assignmentFilter, companyFilter, currentUser, userRole);
-          if (evts.length > 0) {
-            eventMap[d] = new Set(evts.map((e) => e.type));
-            evts.forEach((e) => {
-              if (e.type === "audiencia") audiencias++;
-              else if (e.type === "prazo") prazos++;
-              else tarefas++;
-            });
-          }
-        }
-        const total = audiencias + prazos + tarefas;
-        const isCurrentMonth = monthIdx === TODAY.getMonth() && year === TODAY.getFullYear();
-        const todayDay = isCurrentMonth ? TODAY.getDate() : -1;
-
-        // Grid cells: blank prefix + days
-        const cells: (number | null)[] = Array(firstDayOfWeek).fill(null);
-        for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-        while (cells.length % 7 !== 0) cells.push(null);
-
-        return (
-          <button
-            key={monthIdx}
-            onClick={() => onMonthClick(new Date(year, monthIdx, 1))}
-            className={cn(
-              "rounded-2xl border bg-card p-4 text-left transition-all hover:shadow-card hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              isCurrentMonth && "ring-2 ring-primary/40 bg-primary/[0.02]",
-            )}
-          >
-            {/* Month header */}
-            <div className="flex items-center justify-between mb-3">
-              <span className={cn(
-                "text-sm font-bold",
-                isCurrentMonth ? "text-primary" : "text-foreground",
-              )}>{monthName}</span>
-              {total > 0 && (
-                <span className="text-[10px] font-semibold text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">
-                  {total}
-                </span>
-              )}
-            </div>
-
-            {/* Mini calendar grid */}
-            <div className="grid grid-cols-7 gap-px mb-3">
-              {["D","S","T","Q","Q","S","S"].map((d, i) => (
-                <span key={i} className="text-center text-[8px] font-semibold text-muted-foreground/60 pb-0.5">{d}</span>
-              ))}
-              {cells.map((day, i) => {
-                if (!day) return <span key={i} />;
-                const types = eventMap[day];
-                const isToday = day === todayDay;
-                const hasAudiencia = types?.has("audiencia");
-                const hasPrazo = types?.has("prazo");
-                const hasTarefa = types?.has("tarefa");
-                const dotColor = hasAudiencia ? "bg-primary" : hasPrazo ? "bg-warning" : "bg-success";
-
-                return (
-                  <div key={i} className="flex flex-col items-center gap-px">
-                    <span className={cn(
-                      "text-[9px] leading-none w-5 h-5 flex items-center justify-center rounded-full font-medium",
-                      isToday && "bg-primary text-primary-foreground font-bold",
-                      !isToday && types && "text-foreground font-semibold",
-                      !isToday && !types && "text-muted-foreground/50",
-                    )}>
-                      {day}
-                    </span>
-                    {types ? (
-                      <div className="flex gap-px justify-center">
-                        {hasAudiencia && <span className="w-1 h-1 rounded-full bg-primary" />}
-                        {hasPrazo && <span className="w-1 h-1 rounded-full bg-warning" />}
-                        {hasTarefa && <span className="w-1 h-1 rounded-full bg-success" />}
-                      </div>
-                    ) : <span className="h-1" />}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Event summary */}
-            {total === 0 ? (
-              <p className="text-[10px] text-muted-foreground/40 text-center">Sem eventos</p>
-            ) : (
-              <div className="flex items-center gap-2 flex-wrap">
-                {audiencias > 0 && (
-                  <span className="flex items-center gap-1 text-[10px] font-semibold text-primary bg-primary/10 rounded-full px-1.5 py-0.5">
-                    <Gavel className="h-2.5 w-2.5" />{audiencias}
-                  </span>
-                )}
-                {prazos > 0 && (
-                  <span className="flex items-center gap-1 text-[10px] font-semibold text-warning bg-warning/10 rounded-full px-1.5 py-0.5">
-                    <Clock className="h-2.5 w-2.5" />{prazos}
-                  </span>
-                )}
-                {tarefas > 0 && (
-                  <span className="flex items-center gap-1 text-[10px] font-semibold text-success bg-success/10 rounded-full px-1.5 py-0.5">
-                    <ListTodo className="h-2.5 w-2.5" />{tarefas}
-                  </span>
-                )}
-              </div>
-            )}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-// ═══════════════════════════ MAIN ═══════════════════════════
 export default function Agenda() {
   const { user } = useAuth();
   const currentUserName = user?.name ?? "Thiago";
@@ -693,7 +34,6 @@ export default function Agenda() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [view, setView] = useState<ViewType>("mes");
   const [typeFilter, setTypeFilter] = useState<EventFilterType>("todos");
-  // MVP: não-admin começa em "Minhas atribuições"
   const [assignmentFilter, setAssignmentFilter] = useState<AssignmentFilter>(isAdmin ? "todos" : "minhas");
   const [companyFilter, setCompanyFilter] = useState("todas");
   const [showFilters, setShowFilters] = useState(false);
@@ -702,11 +42,9 @@ export default function Agenda() {
 
   const handleSaveTime = useCallback((eventKey: string, newTime: string) => {
     setTimeOverrides((prev) => ({ ...prev, [eventKey]: newTime }));
-    // Atualiza o evento selecionado com o novo horário
     setSelectedEvent((prev) => prev ? { ...prev, time: newTime, hour: parseInt(newTime.split(":")[0]) } : null);
   }, []);
 
-  // Year selector
   const availableYears = useMemo(() => {
     const years = new Set<number>();
     mockHearings.forEach((h) => years.add(new Date(h.date).getFullYear()));
@@ -722,7 +60,6 @@ export default function Agenda() {
     d.setFullYear(y);
     setSelectedDate(d);
   };
-
 
   const prev = () => {
     const d = new Date(selectedDate);
@@ -751,7 +88,6 @@ export default function Agenda() {
   };
 
   const handleExportCSV = () => {
-    // Collect all events in the current view period
     const dates: Date[] = [];
     if (view === "mes") {
       const year = selectedDate.getFullYear();
@@ -812,7 +148,6 @@ export default function Agenda() {
     return `${WEEKDAYS_FULL[selectedDate.getDay()]}, ${selectedDate.getDate()} de ${MONTHS[selectedDate.getMonth()]}`;
   }, [view, selectedDate]);
 
-  // Period stats
   const periodStats = useMemo(() => {
     const dates: Date[] = [];
     if (view === "ano") {
@@ -843,7 +178,6 @@ export default function Agenda() {
     return { audiencias, prazos, tarefas, total: audiencias + prazos + tarefas };
   }, [selectedDate, view, assignmentFilter, companyFilter]);
 
-
   const activeFilters = (typeFilter !== "todos" ? 1 : 0) + (assignmentFilter !== "todos" ? 1 : 0) + (companyFilter !== "todas" ? 1 : 0);
   const isToday = isSameDay(selectedDate, TODAY);
 
@@ -854,13 +188,9 @@ export default function Agenda() {
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">Agenda</h1>
-            <p className="text-sm text-muted-foreground font-medium">
-              Audiências, prazos e tarefas
-            </p>
+            <p className="text-sm text-muted-foreground font-medium">Audiências, prazos e tarefas</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-
-            {/* Year selector */}
             <Select value={String(selectedDate.getFullYear())} onValueChange={handleYearChange}>
               <SelectTrigger className="h-9 w-[88px] text-xs rounded-lg">
                 <SelectValue />
@@ -871,13 +201,7 @@ export default function Agenda() {
                 ))}
               </SelectContent>
             </Select>
-
-            <Button
-              variant={showFilters ? "secondary" : "outline"}
-              size="sm"
-              className="gap-1.5 text-xs rounded-lg"
-              onClick={() => setShowFilters(!showFilters)}
-            >
+            <Button variant={showFilters ? "secondary" : "outline"} size="sm" className="gap-1.5 text-xs rounded-lg" onClick={() => setShowFilters(!showFilters)}>
               <Filter className="h-3.5 w-3.5" />
               Filtros
               {activeFilters > 0 && (
@@ -886,7 +210,6 @@ export default function Agenda() {
                 </Badge>
               )}
             </Button>
-
             <Tabs value={view} onValueChange={(v) => setView(v as ViewType)}>
               <TabsList className="h-9">
                 <TabsTrigger value="dia" className="text-xs px-3">Dia</TabsTrigger>
@@ -897,7 +220,6 @@ export default function Agenda() {
             </Tabs>
           </div>
         </div>
-
 
         {/* Stat counters */}
         <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
@@ -970,7 +292,7 @@ export default function Agenda() {
           </Button>
         </div>
 
-        {/* Calendar + Side Panel */}
+        {/* Calendar */}
         <div className="flex gap-4">
           <div className="flex-1 min-w-0">
             {view === "ano" && <YearView selectedDate={selectedDate} onMonthClick={handleMonthClick} typeFilter={typeFilter} assignmentFilter={assignmentFilter} companyFilter={companyFilter} currentUser={currentUserName} userRole={userRole} />}
@@ -978,7 +300,6 @@ export default function Agenda() {
             {view === "semana" && <WeekView selectedDate={selectedDate} typeFilter={typeFilter} assignmentFilter={assignmentFilter} companyFilter={companyFilter} onEventClick={setSelectedEvent} currentUser={currentUserName} userRole={userRole} />}
             {view === "dia" && <DayView selectedDate={selectedDate} typeFilter={typeFilter} assignmentFilter={assignmentFilter} companyFilter={companyFilter} onEventClick={setSelectedEvent} currentUser={currentUserName} userRole={userRole} />}
           </div>
-
         </div>
 
         {/* Legend */}
